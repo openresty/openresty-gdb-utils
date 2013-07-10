@@ -1,12 +1,15 @@
-= Name =
+Name
+====
 
 GDB utilities for Nginx, ngx_lua, LuaJIT, and etc.
 
-= Status =
+Status
+======
 
 This is still under early development.
 
-= Synopsis =
+Synopsis
+========
 
     (gdb) source luajit20.gdb
 
