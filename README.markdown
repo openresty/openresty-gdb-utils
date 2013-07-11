@@ -11,7 +11,7 @@ This is still under early development.
 Synopsis
 ========
 
-    (gdb) source luajit20.gdb
+    (gdb) source ngx-lua.gdb
 
 Authors
 =======
