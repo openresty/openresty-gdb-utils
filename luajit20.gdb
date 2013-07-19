@@ -193,15 +193,23 @@ define ltab
     set $narray = $table.asize
     set $hmask = $table.hmask
     printf "tab(%d, %d): {", $narray, $hmask
-    set $i = 1
+    set $i = 0
     set $array = ((TValue *)($table.array.ptr32))
     while ($i < $narray)
-        printf "[%d]=", $i
-        if ($array[$i]->it != ~0u)
-            lvalue &$array[$i]
-            printf ", "
+        if ($i == 0)
+            if ($array[0]->it != ~0u)
+                printf "[0]="
+                lvalue &$array[0]
+                printf ", "
+            end
         else
-            printf "nil, "
+            printf "[%d]=", $i
+            if ($array[$i]->it != ~0u)
+                lvalue &$array[$i]
+                printf ", "
+            else
+                printf "nil, "
+            end
         end
         set $i++
     end
@@ -285,7 +293,7 @@ define lgc
     set $lgc_L = (lua_State *)($arg0)
     set $lgc_global_state = (global_State *)($lgc_L->glref->ptr32)
     set $lgc_gc = $lgc_global_state.gc
-    printf "GC memory currently allocated:%d\n", $lgc_gc.total
+    printf "GC memory currently allocated: %d\n", $lgc_gc.total
 end
 
 document lgc
