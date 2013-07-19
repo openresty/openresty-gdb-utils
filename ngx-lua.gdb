@@ -13,8 +13,8 @@ end
 define ngx-lua-thread
     set $coctx = (ngx_http_lua_co_ctx_t *) $arg0
     echo $arg1
-    printf " thread is %p, L=%p, status: %s\n", \
-           $coctx, $coctx->co, \
+    printf " thread is %p, L=%p, ref=%d, status: %s\n", \
+           $coctx, $coctx->co, $coctx->co_ref, \
            ngx_http_lua_co_status_names[$coctx->co_status]
 end
 
