@@ -34,7 +34,7 @@ define ngx-lua-uthreads
                $ctx->flushing_coros
     end
 
-    set $part = $ctx->user_co_ctx->part
+    set $part = &$ctx->user_co_ctx->part
     set $cc = (ngx_http_lua_co_ctx_t *) $part->elts
     set $n = 0
     set $i = 0

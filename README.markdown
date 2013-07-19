@@ -12,6 +12,17 @@ Synopsis
 ========
 
     (gdb) source ngx-lua.gdb
+    (gdb) source luajit20.gdb
+    (gdb) lreg L &ngx_http_lua_ctx_tables_key
+    <tab: 0x412a68c8>
+    (gdb) ltab 0x412a68c8
+    tab(4097, 0): {[1]=<tab: 0x4095fc78>, [2]=<tab: 0x4095fc80>, [3]=<tab: 0x4095fc88>,
+     [4]=<tab: 0x4095fc90>, [5]=<tab: 0x4095fc98>, [6]=<tab: 0x4095fca0>,
+     [7]=<tab: 0x4095fca8>, [8]=<tab: 0x4095fcb0>, [9]=<tab: 0x4095fcb8>,
+     [10]=<tab: 0x4095fcc0>, [11]=<tab: 0x4095fcc8>, [12]=<tab: 0x4095fcd0>,
+     [13]=<tab: 0x4095fcd8>, [14]=<tab: 0x4095fce0>, [15]=<tab: 0x4095fce8>,
+     [16]=<tab: 0x4095fcf0>, [17]=<tab: 0x4095fcf8>, [18]=<tab: 0x4095fd00>,
+     ...
 
 Authors
 =======
