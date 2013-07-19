@@ -189,15 +189,11 @@ class lbt(gdb.Command):
             if currentline == -1:
                 return src
 
-            m = re.search('"(.+?)"', src.__str__())
-            if m:
-                return "%s:%s" % (m.group(1), currentline)
-
-            return "%s:%s" % (src, currentline)
+            return "%s:%s" % (src.string(), currentline)
 
         #being a C function
         cfunc = fn['c']['f']
-        m = re.search('<(.+?)>', cfunc.__str__())
+        m = re.search('<.*?(\w+)*.*?>', cfunc.__str__())
         if m:
             res = m.group(1)
             return "C:" + res
