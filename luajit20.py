@@ -1,13 +1,13 @@
 import gdb
 import re
 class lbt(gdb.Command):
-    """This tool dump out the current Lua-land backtrace in the
-       specify lua_State.\n\nUsage: lbt lua_State"""
+    """This command dumps out the current Lua-land backtrace in the lua_State specified.
+Usage: lbt lua_State"""
+
     def __init__ (self):
         super (lbt, self).__init__("lbt", gdb.COMMAND_USER)
 
     def type_lookup(self):
-        self.cfuncs = dict()
         self.int_type = gdb.lookup_type('uint32_t')
 
         self.int_pointer_type = gdb.lookup_type('uint32_t').pointer()
@@ -80,9 +80,8 @@ class lbt(gdb.Command):
                 return first + lineinfo.cast(self.uint8_t_pointer_type)[pc]
 
             if pt['numline'] < 65536:
-                #print "65535"
                 return first + lineinfo.cast(self.uint16_t_pointer_type)[pc]
-            #print "u32"
+
             return first + lineinfo.cast(self.int_pointer_type)[pc]
         return 0
 
@@ -129,7 +128,6 @@ class lbt(gdb.Command):
         return res - 1
 
     def debug_frameline(self, L, fn, nextframe):
-        self.sizeof_GCproto = gdb.parse_and_eval("sizeof(GCproto)")
         pc = self.debug_framepc(L, fn, nextframe)
         if pc != ~0:
             pt = fn['l']['pc']['ptr32'] - self.sizeof_GCproto
@@ -189,15 +187,11 @@ class lbt(gdb.Command):
             if currentline == -1:
                 return src
 
-            m = re.search('"(.+?)"', src.__str__())
-            if m:
-                return "%s:%s" % (m.group(1), currentline)
-
-            return "%s:%s" % (src, currentline)
+            return "%s:%s" % (src.string(), currentline)
 
         #being a C function
         cfunc = fn['c']['f']
-        m = re.search('<(.+?)>', cfunc.__str__())
+        m = re.search('<.*?(\w+)*.*?>', cfunc.__str__())
         if m:
             res = m.group(1)
             return "C:" + res

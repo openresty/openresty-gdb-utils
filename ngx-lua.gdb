@@ -10,6 +10,25 @@ define ngx-lua-code-cache
     end
 end
 
+define ngx-lua-main-conf
+    set $r = (ngx_http_request_t *) $arg0
+    set $main_conf = (ngx_http_lua_main_conf_t *) $r->main_conf[ngx_http_lua_module.ctx_index]
+
+    printf "lua main VM: %p\n", $main_conf->lua
+
+    printf "pending timers: %d (max=%d)\n", $main_conf->pending_timers, \
+           $main_conf->max_pending_timers
+
+    printf "running timers: %d (max=%d)\n", $main_conf->running_timers, \
+           $main_conf->max_running_timers
+
+    printf "regex cache entries: %d (max=%d)\n", \
+           $main_conf->regex_cache_entries, \
+           $main_conf->regex_cache_max_entries
+
+    printf "regex match limit: %d\n", $main_conf->regex_match_limit
+end
+
 define ngx-lua-thread
     set $coctx = (ngx_http_lua_co_ctx_t *) $arg0
     echo $arg1
