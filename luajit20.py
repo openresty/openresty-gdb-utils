@@ -10,6 +10,7 @@ Usage: lbt lua_State"""
     def type_lookup(self):
         self.int_type = gdb.lookup_type('uint32_t')
 
+        self.lua_State_pointer_type = gdb.lookup_type('lua_State').pointer()
         self.int_pointer_type = gdb.lookup_type('uint32_t').pointer()
         self.char_pointer_type = gdb.lookup_type('char').pointer()
         self.TValue_pointer_type = gdb.lookup_type('TValue').pointer()
@@ -205,7 +206,13 @@ Usage: lbt lua_State"""
 
         self.type_lookup()
 
-        L = gdb.parse_and_eval(argv[0])
+        m = re.match('0[xX][0-9a-fA-F]+', argv[0])
+        if m:
+            L = gdb.Value(int(argv[0], 16)).cast(self.lua_State_pointer_type)
+
+        else:
+            L = gdb.parse_and_eval(argv[0])
+
         if not L:
             print "L empty"
             return
