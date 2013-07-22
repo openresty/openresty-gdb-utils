@@ -187,52 +187,6 @@ document ltype
     Usage: ltype addr
 end
 
-define ltab
-    set $val = (TValue *)($arg0)
-    set $table = (((GCobj *)($val->gcr->gcptr32))->tab)
-    set $narray = $table.asize
-    set $hmask = $table.hmask
-    printf "tab(%d, %d): {", $narray, $hmask
-    set $i = 0
-    set $array = ((TValue *)($table.array.ptr32))
-    while ($i < $narray)
-        if ($i == 0)
-            if ($array[0]->it != ~0u)
-                printf "[0]="
-                lvalue &$array[0]
-                printf ", "
-            end
-        else
-            printf "[%d]=", $i
-            if ($array[$i]->it != ~0u)
-                lvalue &$array[$i]
-                printf ", "
-            else
-                printf "nil, "
-            end
-        end
-        set $i++
-    end
-
-    set $i = 0
-    set $node = (Node *)($table.node.ptr32)
-    while ($i <= $hmask)
-        if ($node[$i]->val->it != ~0u)
-            printf "["
-            lvalue &$node[$i]->key
-            printf "]="
-            lvalue &$node[$i]->val
-            printf ", "
-        end
-        set $i++
-    end
-    printf "}\n"
-end
-
-document ltab
-    Print all the elems in the table
-    Usage: ltab addr
-end
 
 define lreg
     set $lreg_L = (lua_State *)($arg0)

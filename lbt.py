@@ -186,7 +186,7 @@ Usage: lbt lua_State"""
                 src = str_pointer.cast(self.GCstr_pointer_type) + 1
                 src = src.cast(self.char_pointer_type)
             if currentline == -1:
-                return src
+                return src.string()
 
             return "%s:%s" % (src.string(), currentline)
 
@@ -248,6 +248,6 @@ Usage: lbt lua_State"""
             print stack
             return
 
-        print "stack empty"
+        print "empty backtrace"
         return
 lbt()
