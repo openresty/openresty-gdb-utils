@@ -2,7 +2,7 @@ import gdb
 import re
 class ltab(gdb.Command):
     """This command dumps out the all the elems in the lua table specified.
-Usage: ltab addr [nil]"""
+Usage: ltab addr [nil] [r]"""
 
     def __init__ (self):
         super (ltab, self).__init__("ltab", gdb.COMMAND_USER)
@@ -33,7 +33,7 @@ Usage: ltab addr [nil]"""
         self.GCObj_pointer_type = gdb.lookup_type('GCobj').pointer()
         self.GCstr_pointer_type = gdb.lookup_type('GCstr').pointer()
 
-    def lvalue(self, val, depth, print_nil):
+    def lvalue(self, val, depth, print_nil, recursive_print):
         if val['it'] == self.LJ_TNIL:
             if print_nil:
                 return "nil"
@@ -77,10 +77,13 @@ Usage: ltab addr [nil]"""
             return "<cdata: %s>" % val.address
 
         elif val['it'] == self.LJ_TTAB:
+            if not recursive_print:
+                return "<tab: %s>" % val.address
+
             if depth < 3:
                 table_addr = val['gcr']['gcptr32']
                 table = table_addr.cast(self.GCObj_pointer_type)['tab']
-                self.print_table(table, depth + 1 , print_nil)
+                self.print_table(table, depth + 1 , print_nil, recursive_print)
                 return ""
             return "<tab: %s>" % val.address
 
@@ -94,7 +97,7 @@ Usage: ltab addr [nil]"""
         else:
             return "Value Error!"
 
-    def print_table(self, table, depth, print_nil):
+    def print_table(self, table, depth, print_nil, recursive_print):
         narray = table['asize']
         nhmask = table['hmask']
         sys.stdout.write("tab(%d, %d): {" % (narray, nhmask))
@@ -102,12 +105,12 @@ Usage: ltab addr [nil]"""
         for i in xrange(narray):
             if i == 0:
                 if array[0]['it'] != self.LJ_TNIL:
-                    sys.stdout.write("[%d] = %s, " % (i, self.lvalue(array[0], depth, print_nil)))
+                    sys.stdout.write("[%d]=%s, " % (i, self.lvalue(array[0], depth, print_nil, recursive_print)))
                 continue
 
             if array[i]['it'] != self.LJ_TNIL:
                 sys.stdout.write("[%d] = " % i)
-                res = self.lvalue(array[i], depth,  print_nil)
+                res = self.lvalue(array[i], depth, print_nil, recursive_print)
                 sys.stdout.write("%s, " % res)
 
             elif (print_nil):
@@ -116,8 +119,8 @@ Usage: ltab addr [nil]"""
         node = table['node']['ptr32'].cast(self.Node_pointer_type)
         for i in xrange(nhmask+1):
                 if node[i]['val']['it'] != self.LJ_TNIL:
-                    key_str = self.lvalue(node[i]['key'], depth, print_nil)
-                    val_str = self.lvalue(node[i]['val'], depth, print_nil)
+                    key_str = self.lvalue(node[i]['key'], depth, print_nil, recursive_print)
+                    val_str = self.lvalue(node[i]['val'], depth, print_nil, recursive_print)
                     sys.stdout.write("[%s] = %s, " % (key_str, val_str))
 
         if narray == 0 and nhmask == 0:
@@ -129,17 +132,29 @@ Usage: ltab addr [nil]"""
 
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
-        if not (len(argv) == 1 or len(argv) == 2):
-            raise gdb.GdbError("Usage: ltab addr [nil]")
+        if not (len(argv) == 1 or len(argv) == 2 or len(argv) == 3):
+            raise gdb.GdbError("Usage: ltab addr [nil] [r]")
 
         print_nil = 0
+        recursive_print = 0
 
         if len(argv) == 2:
-            if argv[1] != "nil":
-                raise gdb.GdbError("Usage: ltab addr [nil]")
+            if argv[1] == "nil":
+                print_nil = 1
+
+            elif argv[1]  == "r":
+                recursive_print = 1
 
             else:
+                raise gdb.GdbError("Usage: ltab addr [nil] [r]")
+
+        if len(argv) == 3:
+            if (argv[1] == "nil" and argv[2] == "r") or (argv[2] == "nil" and argv[1] == "r"):
                 print_nil = 1
+                recursive_print = 1
+
+            else:
+                raise gdb.GdbError("Usage: ltab addr [nil] [r]")
 
         self.type_lookup()
         m = re.match('0[xX][0-9a-fA-F]+', argv[0])
@@ -155,7 +170,7 @@ Usage: ltab addr [nil]"""
 
         table_addr = val['gcr']['gcptr32']
         table = table_addr.cast(self.GCObj_pointer_type)['tab']
-        self.print_table(table, 0, print_nil)
+        self.print_table(table, 0, print_nil, recursive_print)
         sys.stdout.write("\n" )
 
 ltab()
