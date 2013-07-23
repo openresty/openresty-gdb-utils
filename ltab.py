@@ -109,19 +109,19 @@ Usage: ltab addr [nil] [r]"""
                 continue
 
             if array[i]['it'] != self.LJ_TNIL:
-                sys.stdout.write("[%d] = " % i)
+                sys.stdout.write("[%d]=" % i)
                 res = self.lvalue(array[i], depth, print_nil, recursive_print)
                 sys.stdout.write("%s, " % res)
 
             elif (print_nil):
-                sys.stdout.write("[%d] = nil, " % i)
+                sys.stdout.write("[%d]=nil, " % i)
 
         node = table['node']['ptr32'].cast(self.Node_pointer_type)
         for i in xrange(nhmask+1):
                 if node[i]['val']['it'] != self.LJ_TNIL:
                     key_str = self.lvalue(node[i]['key'], depth, print_nil, recursive_print)
                     val_str = self.lvalue(node[i]['val'], depth, print_nil, recursive_print)
-                    sys.stdout.write("[%s] = %s, " % (key_str, val_str))
+                    sys.stdout.write("[%s]=%s, " % (key_str, val_str))
 
         if narray == 0 and nhmask == 0:
             sys.stdout.write("}")
@@ -142,7 +142,7 @@ Usage: ltab addr [nil] [r]"""
             if argv[1] == "nil":
                 print_nil = 1
 
-            elif argv[1]  == "r":
+            elif argv[1] == "r":
                 recursive_print = 1
 
             else:
