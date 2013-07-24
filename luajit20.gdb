@@ -74,6 +74,7 @@ define lvalue
         end
 
         if ($lvalue_TValue.it == ~11u)
+            printf "<0x%x>", (int)$lvalue_TValue
             ltab $lvalue_TValue
             loop_break
         end
