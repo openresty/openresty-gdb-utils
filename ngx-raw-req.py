@@ -41,11 +41,11 @@ Usage: ngx-raw-req <ngx_http_request>"""
             size = 0
             for i in xrange(int(hc['nbusy'])):
                 b = hc['busy'][i]
-                data = request_line['data']
+                line_data = request_line['data']
 
                 if first is None:
-                    if (data >= b['pos'] or
-                        data + request_line['len'] + 2 <= b['start']):
+                    if (line_data >= b['pos'] or
+                        line_data + request_line['len'] + 2 <= b['start']):
                         continue
                     first = b
 
