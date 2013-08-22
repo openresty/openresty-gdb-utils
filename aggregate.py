@@ -103,7 +103,8 @@ class Aggregate():
         curr_empty_count = 0
         in_elision = False
         l = sorted(d.keys())
-        sys.stdout.write("value\t|------------------------------------------------ count\n")
+        sys.stdout.write("value\t|")
+        sys.stdout.write("------------------------------------------------ count\n")
         for i in l:
 
             if d[i] == 0:
@@ -112,7 +113,6 @@ class Aggregate():
             if d[i] != 0:
                 curr_empty_count = 0
 
-        
             if in_elision and d[i] != 0:
                 curr_empty_count = 0
                 in_elision = False
@@ -140,7 +140,7 @@ class Aggregate():
     def hist_linear_print(self, low, high, step):
         self.set_hist_linear(low, high, step)
         self.print_dict_result(self.hist_linear)
-       
+
     def gather_list(self, l):
         self.elems.extend(l)
         self.count += len(l)
@@ -162,11 +162,11 @@ class Aggregate():
 
     def gather_num(self, num):
         self.elems.append(num)
-        self.count += 1 
-        self.sum_total += num 
+        self.count += 1
+        self.sum_total += num
 
         if num > self.maximum:
-            self.maximum = num 
+            self.maximum = num
 
         if num < self.minimum:
             self.minimum = num
