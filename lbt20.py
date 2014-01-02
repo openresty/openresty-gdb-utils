@@ -1,7 +1,7 @@
 import gdb
 import re
 class lbt(gdb.Command):
-    """This command dumps out the current Lua-land backtrace in the lua_State specified.
+    """This command dumps out the current Lua-land backtrace in the lua_State specified. Only LuaJIT 2.0 interpreted code is supported.
 Usage: lbt lua_State"""
 
     def __init__ (self):
