@@ -11,6 +11,7 @@ This is still under early development.
 Synopsis
 ========
 
+    # add the path of nginx.py and ngxlua.py modules to the PYTHONPATH env
     (gdb) source luajit21.py
     (gdb) lvmst
     current VM state: C code from intperpreted Lua
