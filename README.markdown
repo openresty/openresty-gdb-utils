@@ -112,12 +112,16 @@ Also, you are required to use gdb 7.6+ with python support enabled.
 Authors
 =======
 
+* Guanlan Dai.
+
 * Yichun Zhang (agentzh) <agentzh@gmail.com>, CloudFlare Inc.
 
 Copyright and License
 =====================
 
 This module is licensed under the BSD license.
+
+Copyright (C) 2013, by Guanlan Dai.
 
 Copyright (C) 2013, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
 
