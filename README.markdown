@@ -3,6 +3,21 @@ Name
 
 GDB utilities for Nginx, ngx_lua, LuaJIT, and etc.
 
+Table of Contents
+=================
+
+* [Name](#name)
+* [Status](#status)
+* [Synopsis](#synopsis)
+* [Description](#description)
+* [Commands](#commands)
+    * [lbt](#lbt)
+    * [lvmst](#lvmst)
+* [Prerequisites](#prerequisites)
+* [Authors](#authors)
+* [Copyright and License](#copyright-and-license)
+* [See Also](#see-also)
+
 Status
 ======
 
@@ -40,10 +55,14 @@ Description
 
 This toolkit provides various gdb extension commands for analyzing core dump files for nginx and/or luajit.
 
+[Back to TOC](#table-of-contents)
+
 Commands
 ========
 
 The following gdb commands are supported:
+
+[Back to TOC](#table-of-contents)
 
 lbt
 ---
@@ -75,6 +94,8 @@ You can also explicitly specify the Lua thread state you want to analyze, for in
 
 Only LuaJIT 2.1 is supported.
 
+[Back to TOC](#table-of-contents)
+
 lvmst
 -----
 **syntax:** *lvmst*
@@ -98,6 +119,8 @@ You can also explicitly specify the lua VM state you want to analyze, for instan
 
 You can specify any Lua thread's state in the VM you want to analyze.
 
+[Back to TOC](#table-of-contents)
+
 Prerequisites
 =============
 
@@ -109,12 +132,16 @@ To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line arg
 
 Also, you are required to use gdb 7.6+ with python support enabled.
 
+[Back to TOC](#table-of-contents)
+
 Authors
 =======
 
 * Guanlan Dai.
 
 * Yichun Zhang (agentzh) <agentzh@gmail.com>, CloudFlare Inc.
+
+[Back to TOC](#table-of-contents)
 
 Copyright and License
 =====================
@@ -135,7 +162,11 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+[Back to TOC](#table-of-contents)
+
 See Also
 ========
 
 * [Nginx Systemtap Toolkit](https://github.com/agentzh/nginx-systemtap-toolkit)
+
+[Back to TOC](#table-of-contents)
