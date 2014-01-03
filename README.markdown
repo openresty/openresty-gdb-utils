@@ -35,6 +35,64 @@ Synopsis
      [16]=<tab: 0x4095fcf0>, [17]=<tab: 0x4095fcf8>, [18]=<tab: 0x4095fd00>,
      ...
 
+Commands
+========
+
+The following gdb commands are supported:
+
+lbt
+---
+**syntax:** *lbt*
+
+**syntax:** *lbt <L>*
+
+**file** *luajit21.py*
+
+Fetch the current backtrace from the current running Lua thread(when no argument is given) or the Lua thread specified by the lua_State pointer.
+
+The backtrace format is the same as the one used by the [ngx-lj-lua-bt](#ngx-lj-lua-bt) tool.
+
+When analyzing ngx_lua's processes, this tool requires the Python module files `nginx.py` and `ngxlua.py` to obtain the global Lua state. You need to add the path of these `.py` files to the `PYTHONPATH` environment variable before starting `gdb`.
+
+Below is an example:
+
+    (gdb) source luajit21.py
+    (gdb) lbt
+    builtin#166
+    builtin#195
+    builtin#187
+    @/home/agentzh/git/lua-resty-core/lib/resty/core/regex.lua:588
+    content_by_lua:10
+
+You can also explicitly specify the Lua thread state you want to analyze, for instance,
+
+    (gdb) lbt 0x169e0e0
+
+Only LuaJIT 2.1 is supported.
+
+lvmst
+-----
+**syntax:** *lvmst*
+
+**syntax:** *lvmst <L>*
+
+**file** *luajit21.py*
+
+Prints out the current state of the LuaJIT 2.1 VM.
+
+Below is an example,
+
+    (gdb) source luajit21.py
+    (gdb) lvmst
+    current VM state: C code from intperpreted Lua
+
+You can also explicitly specify the lua VM state you want to analyze, for instance,
+
+    (gdb) lvmst 0x169e0e0
+    current VM state: C code from intperpreted Lua
+
+You can specify any Lua thread's state in the VM you want to analyze.
+
 Authors
 =======
 
