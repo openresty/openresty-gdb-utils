@@ -35,6 +35,11 @@ Synopsis
      [16]=<tab: 0x4095fcf0>, [17]=<tab: 0x4095fcf8>, [18]=<tab: 0x4095fd00>,
      ...
 
+Description
+===========
+
+This toolkit provides various gdb extension commands for analyzing core dump files for nginx and/or luajit.
+
 Commands
 ========
 
