@@ -11,6 +11,16 @@ This is still under early development.
 Synopsis
 ========
 
+    (gdb) source luajit21.py
+    (gdb) lvmst
+    current VM state: C code from intperpreted Lua
+    (gdb) lbt
+    builtin#166
+    builtin#195
+    builtin#187
+    @/home/agentzh/git/lua-resty-core/lib/resty/core/regex.lua:588
+    content_by_lua:10
+
     (gdb) source ngx-lua.gdb
     (gdb) source luajit20.gdb
     (gdb) lreg L &ngx_http_lua_ctx_tables_key
