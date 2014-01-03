@@ -68,7 +68,7 @@ lbt
 ---
 **syntax:** *lbt*
 
-**syntax:** *lbt <L>*
+**syntax:** *lbt &lt;L&gt;*
 
 **file** *luajit21.py*
 
@@ -100,7 +100,7 @@ lvmst
 -----
 **syntax:** *lvmst*
 
-**syntax:** *lvmst <L>*
+**syntax:** *lvmst &lt;L&gt;*
 
 **file** *luajit21.py*
 
