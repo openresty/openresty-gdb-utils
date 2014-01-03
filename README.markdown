@@ -168,5 +168,6 @@ See Also
 ========
 
 * [Nginx Systemtap Toolkit](https://github.com/agentzh/nginx-systemtap-toolkit)
+* Sample tools in the stap++ project: https://github.com/agentzh/stapxx#samples
 
 [Back to TOC](#table-of-contents)
