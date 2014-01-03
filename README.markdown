@@ -93,6 +93,17 @@ You can also explicitly specify the lua VM state you want to analyze, for instan
 
 You can specify any Lua thread's state in the VM you want to analyze.
 
+Prerequisites
+=============
+
+You need to enable the debuginfo in your LuaJIT build (and Nginx build if Nginx is involved).
+
+To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line argument to the `make` command, as in
+
+    make CCDEBUG=-g
+
+Also, you are required to use gdb 7.6+ with python support enabled.
+
 Authors
 =======
 
