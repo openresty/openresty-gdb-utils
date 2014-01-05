@@ -74,7 +74,7 @@ lbt
 
 Fetch the current backtrace from the current running Lua thread(when no argument is given) or the Lua thread specified by the lua_State pointer.
 
-The backtrace format is the same as the one used by the [ngx-lj-lua-bt](#ngx-lj-lua-bt) tool.
+The backtrace format is the same as the one used by the [lj-lua-bt](https://github.com/agentzh/stapxx#lj-lua-bt) tool.
 
 When analyzing ngx_lua's processes, this tool requires the Python module files `nginx.py` and `ngxlua.py` to obtain the global Lua state. You need to add the path of these `.py` files to the `PYTHONPATH` environment variable before starting `gdb`.
 
@@ -148,9 +148,9 @@ Copyright and License
 
 This module is licensed under the BSD license.
 
-Copyright (C) 2013, by Guanlan Dai.
+Copyright (C) 2013-2014, by Guanlan Dai.
 
-Copyright (C) 2013, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
+Copyright (C) 2013-2014, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
 
 All rights reserved.
 
