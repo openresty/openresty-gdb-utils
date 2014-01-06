@@ -118,6 +118,9 @@ Usage: ltab addr [nil] [r]"""
 
         node = table['node']['ptr32'].cast(self.Node_pointer_type)
         for i in xrange(nhmask+1):
+                #print "i = %d" % i
+                nn = node[i]
+                val = node[i]['val']
                 if node[i]['val']['it'] != self.LJ_TNIL:
                     key_str = self.lvalue(node[i]['key'], depth, print_nil, recursive_print)
                     val_str = self.lvalue(node[i]['val'], depth, print_nil, recursive_print)
@@ -168,8 +171,12 @@ Usage: ltab addr [nil] [r]"""
             print "addr empty"
             return
 
-        table_addr = val['gcr']['gcptr32']
-        table = table_addr.cast(self.GCObj_pointer_type)['tab']
+        if str(val.type) == "GCtab *":
+            table = val
+
+        else:
+            table_addr = val['gcr']['gcptr32']
+            table = table_addr.cast(self.GCObj_pointer_type)['tab']
         self.print_table(table, 0, print_nil, recursive_print)
         sys.stdout.write("\n" )
 

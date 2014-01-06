@@ -10,6 +10,12 @@ err = gdbutils.err
 out = gdbutils.out
 warn = gdbutils.warn
 
+def LJ_TNIL():
+    return ~newval("unsigned int", 0)
+
+def LJ_TSTR():
+    return ~newval("unsigned int", 4)
+
 FRAME_LUA = 0
 FRAME_C = 1
 FRAME_CONT = 2
@@ -62,6 +68,12 @@ def get_global_L():
 def get_cur_L():
     mL = get_global_L()
     return gcref(G(mL)['cur_L'])['th'].address
+
+def gcval(o):
+    return gcref(o['gcr'])
+
+def tabV(o):
+    return gcval(o)['tab'].address
 
 def cframe_pc(cf):
     #print("CFRAME!!")
@@ -223,6 +235,9 @@ def debug_frameline(L, T, fn, pt, nextframe):
 def strref(r):
     return gcref(r)['str'].address
 
+def tabref(r):
+    return gcref(r)['tab'].address
+
 def proto_chunkname(pt):
     return strref(pt['chunkname'])
 
@@ -267,8 +282,7 @@ def lj_debug_dumpstack(L, T, depth, base):
                 name = proto_chunkname(pt)
                 if not name:
                     return ""
-                s = strdata(name)
-                path = s.string('iso-8859-6', 'ignore', name['len'])
+                path = lstr2str(name)
                 bt += "%s:%d\n" % (path, line)
 
             elif isffunc(fn):
@@ -404,3 +418,142 @@ Usage: lvmst [L]"""
             out("current VM state: %s\n" % vmstates[~vmstate])
 
 lvmst()
+
+class lmainL(gdb.Command):
+    """This command prints out the main Lua thread's state
+Usage: lmainL"""
+
+    def __init__ (self):
+        super (lmainL, self).__init__("lmainL", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 0:
+            err("Usage: lmainL")
+
+        L = get_global_L()
+        out("(lua_State*)0x%x\n" % ptr2int(L))
+
+lmainL()
+
+class lcurL(gdb.Command):
+    """This command prints out the current running Lua thread's state
+Usage: lcurL"""
+
+    def __init__ (self):
+        super (lcurL, self).__init__("lcurL", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 0:
+            err("Usage: lcurL")
+
+        L = get_cur_L()
+        out("(lua_State*)0x%x\n" % ptr2int(L))
+
+lcurL()
+
+class lglobtab(gdb.Command):
+    """This command prints out the global table.
+Usage: lglobtab [L]"""
+
+    def __init__ (self):
+        super (lglobtab, self).__init__("lglobtab", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) > 1:
+            err("Usage: lglobtab [L]")
+
+        if len(argv) == 1:
+            L = gdbutils.parse_ptr(argv[0], "lua_State*")
+            if not L or str(L) == "void":
+                raise gdb.GdbError("L empty")
+        else:
+            L = get_cur_L()
+
+        #print "g: ", hex(int(L['glref']['ptr32']))
+
+        out("(GCtab*)0x%x\n" % ptr2int(tabref(L['env'])))
+
+lglobtab()
+
+def noderef(r):
+    return mref(r, "Node")
+
+def itype(o):
+    return o['it']
+
+def tvisnil(o):
+    return itype(o) == LJ_TNIL()
+
+def tvisstr(o):
+    return itype(o) == LJ_TSTR()
+
+def strV(o):
+    return gcval(o)['str'].address
+
+def lstr2str(gcs):
+    kstr = strdata(gcs)
+    return kstr.string('iso-8859-6', 'ignore', gcs['len'])
+
+def lj_tab_getstr(t, k):
+    klen = len(k)
+    hmask = t['hmask']
+    node = noderef(t['node'])
+    for i in xrange(hmask + 1):
+        nn = node[i]
+        val = nn['val'].address
+        if not tvisnil(val):
+            key = nn['key'].address
+            if tvisstr(key):
+                gcs = strV(key)
+                #print "Found a string key with len %d" % int(gcs['len'])
+                if gcs['len'] == klen:
+                    s = lstr2str(gcs)
+                    if s == k:
+                        return val
+    return None
+
+class ltabgets(gdb.Command):
+    """This command prints out the specified field in the specified Lua table
+Usage: ltabgets tab field"""
+
+    def __init__ (self):
+        super (ltabgets, self).__init__("ltabgets", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 2:
+            err("Usage: ltabgets tab field")
+
+        m = re.match('0x[0-9a-fA-F]+', argv[0])
+        if m:
+            val = gdb.Value(int(argv[0], 16)).cast(typ("TValue*"))
+
+        else:
+            val = gdb.parse_and_eval(argv[0])
+
+        if not val:
+            raise gdb.GdbError("table argument empty")
+            return
+
+        typstr = str(val.type)
+        if typstr == "GCtab *":
+            tab = val
+
+        else:
+            tab = tabV(val)
+
+        key = argv[1]
+
+        tv = lj_tab_getstr(tab, key)
+        if tv:
+            out("(TValue*)0x%x\n" % ptr2int(tv))
+        else:
+            raise gdb.GdbError("Key not found.")
+
+        #print "g: ", hex(int(L['glref']['ptr32']))
+
+ltabgets()
+
