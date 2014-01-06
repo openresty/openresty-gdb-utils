@@ -676,11 +676,23 @@ Usage: lvalue tv"""
             raise gdb.GdbError("table argument empty")
             return
 
+        typstr = str(o.type)
+        if typstr == "GCstr *":
+            out("GCstr: \"%s\" (len %d)\n" % (lstr2str(o), o['len']))
+            return
+
         if tvisudata(o):
             ud = udataV(o)
             t = ud['udtype']
             out("udata type: %s\n" % udata_types[int(t)])
             out("      payload len: %d\n" % int(ud['len']))
             out("      payload ptr: 0x%x\n" % ptr2int(ud + 1))
+
+        elif tvisstr(o):
+            gcs = strV(o)
+            out("string: \"%s\" (len %d)" % (lstr2str(gcs), int(gcs['len'])))
+
+        else:
+            out("TODO")
 
 lvalue()
