@@ -13,8 +13,44 @@ warn = gdbutils.warn
 def LJ_TNIL():
     return ~newval("unsigned int", 0)
 
+def LJ_TFALSE():
+    return ~newval("unsigned int", 1)
+
+def LJ_TTRUE():
+    return ~newval("unsigned int", 2)
+
+def LJ_TLIGHTUD():
+    return ~newval("unsigned int", 3)
+
 def LJ_TSTR():
     return ~newval("unsigned int", 4)
+
+def LJ_TUPVAL():
+    return ~newval("unsigned int", 5)
+
+def LJ_TTHREAD():
+    return ~newval("unsigned int", 6)
+
+def LJ_TPROTO():
+    return ~newval("unsigned int", 7)
+
+def LJ_TFUNC():
+    return ~newval("unsigned int", 8)
+
+def LJ_TTRACE():
+    return ~newval("unsigned int", 9)
+
+def LJ_TCDATA():
+    return ~newval("unsigned int", 10)
+
+def LJ_TTAB():
+    return ~newval("unsigned int", 11)
+
+def LJ_TUDATA():
+    return ~newval("unsigned int", 12)
+
+def LJ_TNUMX():
+    return ~newval("unsigned int", 13)
 
 FRAME_LUA = 0
 FRAME_C = 1
@@ -463,7 +499,7 @@ Usage: lglobtab [L]"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) > 1:
-            err("Usage: lglobtab [L]")
+            raise gdb.GdbError("Usage: lglobtab [L]")
 
         if len(argv) == 1:
             L = gdbutils.parse_ptr(argv[0], "lua_State*")
@@ -525,7 +561,7 @@ Usage: ltabgets tab field"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) != 2:
-            err("Usage: ltabgets tab field")
+            raise gdb.GdbError("Usage: ltabgets tab field")
 
         m = re.match('0x[0-9a-fA-F]+', argv[0])
         if m:
@@ -550,6 +586,7 @@ Usage: ltabgets tab field"""
         tv = lj_tab_getstr(tab, key)
         if tv:
             out("(TValue*)0x%x\n" % ptr2int(tv))
+            out("type: %s\n" % ltype(tv))
         else:
             raise gdb.GdbError("Key not found.")
 
@@ -557,3 +594,93 @@ Usage: ltabgets tab field"""
 
 ltabgets()
 
+def ltype(tv):
+    t = tv['it']
+    if t == LJ_TNIL():
+        return "nil"
+
+    if t == LJ_TSTR():
+        return "string"
+
+    if t == LJ_TFALSE():
+        return "false"
+
+    if t == LJ_TTRUE():
+        return "true"
+
+    if t == LJ_TLIGHTUD():
+        return "lightuserdata"
+
+    if t == LJ_TTHREAD():
+        return "thread"
+
+    if t == LJ_TUPVAL():
+        return "upvalue"
+
+    if t == LJ_TPROTO():
+        return "proto"
+
+    if t == LJ_TFUNC():
+        return "func"
+
+    if t == LJ_TTRACE():
+        return "trace"
+
+    if t == LJ_TCDATA():
+        return "cdata"
+
+    if t == LJ_TTAB():
+        return "table"
+
+    if t == LJ_TUDATA():
+        return "userdata"
+
+    if t == LJ_TNUMX():
+        return "number"
+
+    return "unknown"
+
+def tvisudata(o):
+    return itype(o) == LJ_TUDATA()
+
+def udataV(o):
+    return gcval(o)['ud'].address
+
+UDTYPE_USERDATA = 0
+UDTYPE_IO_FILE = 1
+UDTYPE_FFI_CLIB = 2
+UDTYPE__MAX = 3
+
+udata_types = ['userdata', 'io file', 'ffi clib']
+
+class lvalue(gdb.Command):
+    """This command prints out the content of a TValue* pointer
+Usage: lvalue tv"""
+
+    def __init__ (self):
+        super (lvalue, self).__init__("lvalue", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 1:
+            raise gdb.GdbError("Usage: lvalue tv")
+
+        m = re.match('0x[0-9a-fA-F]+', argv[0])
+        if m:
+            o = gdb.Value(int(argv[0], 16)).cast(typ("TValue*"))
+
+        else:
+            o = gdb.parse_and_eval(argv[0])
+
+        if not o:
+            raise gdb.GdbError("table argument empty")
+            return
+
+        if tvisudata(o):
+            ud = udataV(o)
+            t = ud['udtype']
+            out("udata type: %s\n" % udata_types[int(t)])
+            out("      payload len: %d\n" % int(ud['len']))
+            out("      payload ptr: 0x%x\n" % ptr2int(ud + 1))
+
+lvalue()
