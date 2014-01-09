@@ -400,19 +400,27 @@ Usage: lbt [L]"""
             bt = lj_debug_dumpstack(L, T, 30, base)
 
         else:
-            if vmstate == ~LJ_VMST_INTERP and not L['cframe']:
-                out("No Lua code running.\n")
-                return
-
-            if vmstate == ~LJ_VMST_INTERP or \
-                   vmstate == ~LJ_VMST_C or \
-                   vmstate == ~LJ_VMST_GC:
-                base = L['base']
-                bt = lj_debug_dumpstack(L, 0, 30, base)
-
+            if vmstate == ~LJ_VMST_EXIT:
+                base = g['jit_base']
+                if base:
+                    bt = lj_debug_dumpstack(L, 0, 30, base)
+                else:
+                    base = L['base']
+                    bt = lj_debug_dumpstack(L, 0, 30, base)
             else:
-                out("No Lua code running.\n")
-                return
+                if vmstate == ~LJ_VMST_INTERP and not L['cframe']:
+                    out("No Lua code running.\n")
+                    return
+
+                if vmstate == ~LJ_VMST_INTERP or \
+                       vmstate == ~LJ_VMST_C or \
+                       vmstate == ~LJ_VMST_GC:
+                    base = L['base']
+                    bt = lj_debug_dumpstack(L, 0, 30, base)
+
+                else:
+                    out("No Lua code running.\n")
+                    return
         if not bt:
             out("Empty backtrace.\n")
         out(bt)
