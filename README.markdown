@@ -59,15 +59,15 @@ Synopsis
     (gdb) luv (GCfunc*)0x4025e168
     0x4025e168
     Found 23 upvalues.
-    upvalue parse_regex_opts: value=(TValue*)0x4025df60 value_type=func closed=1
-    upvalue type: value=(TValue*)0x4025e1e8 value_type=func closed=1
-    upvalue tostring: value=(TValue*)0x4025e208 value_type=func closed=1
-    upvalue band: value=(TValue*)0x4025dd88 value_type=func closed=1
-    upvalue FLAG_COMPILE_ONCE: value=(TValue*)0x41b8daf8 value_type=number closed=1
-    upvalue regex_cache: value=(TValue*)0x4025df80 value_type=table closed=1
-    upvalue get_string_buf: value=(TValue*)0x4025dfa0 value_type=func closed=1
-    upvalue MAX_ERR_MSG_LEN: value=(TValue*)0x4025dfc0 value_type=number closed=1
-    upvalue C: value=(TValue*)0x41b8da38 value_type=userdata closed=1
+    upvalue "parse_regex_opts": value=(TValue*)0x4025df60 value_type=func closed=1
+    upvalue "type": value=(TValue*)0x4025e1e8 value_type=func closed=1
+    upvalue "tostring": value=(TValue*)0x4025e208 value_type=func closed=1
+    upvalue "band": value=(TValue*)0x4025dd88 value_type=func closed=1
+    upvalue "FLAG_COMPILE_ONCE": value=(TValue*)0x41b8daf8 value_type=number closed=1
+    upvalue "regex_cache": value=(TValue*)0x4025df80 value_type=table closed=1
+    upvalue "get_string_buf": value=(TValue*)0x4025dfa0 value_type=func closed=1
+    upvalue "MAX_ERR_MSG_LEN": value=(TValue*)0x4025dfc0 value_type=number closed=1
+    upvalue "C": value=(TValue*)0x41b8da38 value_type=userdata closed=1
     ...
 
     (gdb) lval (TValue*)0x41b8da38
