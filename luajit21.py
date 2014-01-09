@@ -791,7 +791,7 @@ def dump_upvalues(fn, pt):
         uv = gcref(uvptr[idx])['uv'].address
         tvp = uvval(uv)
         name = lj_debug_uvname(pt, idx)
-        out("upvalue %s: value=(TValue*)0x%x value_type=%s closed=%d\n" % \
+        out("upvalue \"%s\": value=(TValue*)0x%x value_type=%s closed=%d\n" % \
                 (name, ptr2int(tvp), ltype(tvp), int(uv['closed'])))
 
 class lfunc(gdb.Command):
