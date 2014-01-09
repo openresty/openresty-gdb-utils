@@ -542,7 +542,9 @@ def strV(o):
 
 def lstr2str(gcs):
     kstr = strdata(gcs)
-    return kstr.string('iso-8859-6', 'ignore', gcs['len'])
+    if not kstr:
+        return ""
+    return kstr.string('iso-8859-6', 'ignore', int(gcs['len']))
 
 def lj_tab_getstr(t, k):
     klen = len(k)
@@ -667,6 +669,30 @@ udata_types = ['userdata', 'io file', 'ffi clib']
 def uddata(u):
     return (u + 1).cast(typ("void*"))
 
+def tviscdata(o):
+    return itype(o) == LJ_TCDATA()
+
+def ctype_ctsG(g):
+    return mref(g['ctype_state'], 'CTState')
+
+def ctype_cts(L):
+    return ctype_ctsG(G(L))
+
+def cdataV(o):
+    return gcval(o)['cd'].address
+
+def ctype_get(cts, id):
+    return cts['tab'][id].address
+
+CTSHIFT_NUM = 28
+
+def ctype_type(info):
+    return info >> CTSHIFT_NUM
+
+ctype_names = [ 'num', 'struct', 'ptr', 'array', '-', \
+        'void', 'enum', '-', 'func', 'typedef', 'attribute', 'field', \
+        'bitfield', 'constant value', 'extern', 'keyworkd']
+
 class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
 Usage: lval tv"""
@@ -690,6 +716,8 @@ Usage: lval tv"""
             raise gdb.GdbError("table argument empty")
             return
 
+        mL = get_global_L()
+
         typstr = str(o.type)
         if typstr == "GCstr *":
             out("GCstr: \"%s\" (len %d)\n" % (lstr2str(o), o['len']))
@@ -711,6 +739,23 @@ Usage: lval tv"""
         elif tvisstr(o):
             gcs = strV(o)
             out("string: \"%s\" (len %d)" % (lstr2str(gcs), int(gcs['len'])))
+
+        elif tviscdata(o):
+            cts = ctype_cts(mL)
+            cd = cdataV(o)
+            out("type cdata\n")
+            out("\tcdata pointer: (GCcdata*)0x%x\n" % ptr2int(cd))
+            d = ctype_get(cts, cd['ctypeid'])
+            out("\tctype pointer: (CType*)0x%x\n" % ptr2int(d))
+            out("\tctype size: %d byte(s)\n" % int(d['size']))
+            t = int(ctype_type(d['info']))
+            if ctype_names[t]:
+                out("\tctype type: %s\n" % ctype_names[t])
+            else:
+                err("\tunknown ctype type: %d\n" % t)
+            s = strref(d['name'])
+            if s:
+                out("\tctype element name: %s\n" % lstr2str(s))
 
         else:
             out("type: %s\n" % ltype(o))
@@ -826,8 +871,11 @@ Usage: lfunc file lineno"""
             if o['gch']['gct'] == ~LJ_TFUNC():
                 fn = o['fn'].address
                 pt = funcproto(fn)
-                if pt['firstline'] == lineno:
+                if pt and pt['firstline'] == lineno:
+                    #print "proto: 0x%x\n" % ptr2int(pt)
                     name = proto_chunkname(pt)
+                    #print "name: 0x%x\n" % ptr2int(name)
+                    #print "len: %d\n" % int(name['len'])
                     if name:
                         path = lstr2str(name)
                         if string.find(path, fname) >= 0:
