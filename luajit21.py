@@ -693,6 +693,7 @@ Usage: lvalue tv"""
             out("string: \"%s\" (len %d)" % (lstr2str(gcs), int(gcs['len'])))
 
         else:
+            out("type: %s\n" % ltype(o))
             out("TODO")
 
 lvalue()
