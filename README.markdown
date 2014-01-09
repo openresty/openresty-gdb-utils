@@ -50,6 +50,33 @@ Synopsis
      [16]=<tab: 0x4095fcf0>, [17]=<tab: 0x4095fcf8>, [18]=<tab: 0x4095fd00>,
      ...
 
+    (gdb) lfunc regex.lua 444
+    Found function (GCfunc*)0x4025e168 at @/home/agentzh/git/lua-resty-core/lib/resty/core/regex.lua:444
+
+    (gdb) lproto regex.lua 444
+    Found proto (GCproto*)0x4025f380 at @/home/agentzh/git/lua-resty-core/lib/resty/core/regex.lua:444
+
+    (gdb) luv (GCfunc*)0x4025e168
+    0x4025e168
+    Found 23 upvalues.
+    upvalue parse_regex_opts: value=(TValue*)0x4025df60 value_type=func closed=1
+    upvalue type: value=(TValue*)0x4025e1e8 value_type=func closed=1
+    upvalue tostring: value=(TValue*)0x4025e208 value_type=func closed=1
+    upvalue band: value=(TValue*)0x4025dd88 value_type=func closed=1
+    upvalue FLAG_COMPILE_ONCE: value=(TValue*)0x41b8daf8 value_type=number closed=1
+    upvalue regex_cache: value=(TValue*)0x4025df80 value_type=table closed=1
+    upvalue get_string_buf: value=(TValue*)0x4025dfa0 value_type=func closed=1
+    upvalue MAX_ERR_MSG_LEN: value=(TValue*)0x4025dfc0 value_type=number closed=1
+    upvalue C: value=(TValue*)0x41b8da38 value_type=userdata closed=1
+    ...
+
+    (gdb) lval (TValue*)0x41b8da38
+    udata type: ffi clib
+          payload len: 16
+          payload ptr: 0x41b81df8
+          CLibrary handle: (void*)0x0
+          CLibrary cache: (GCtab*)0x41b8d188
+
 Description
 ===========
 

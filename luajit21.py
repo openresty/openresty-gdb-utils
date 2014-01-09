@@ -1,6 +1,7 @@
 import gdb
 import gdbutils
 import ngxlua
+import string
 
 typ = gdbutils.typ
 null = gdbutils.null
@@ -439,7 +440,7 @@ Usage: lvmst [L]"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) > 1:
-            err("Usage: lvmst [L]")
+            raise gdb.GdbError("Usage: lvmst [L]")
 
         if len(argv) == 1:
             L = gdbutils.parse_ptr(argv[0], "lua_State*")
@@ -475,7 +476,7 @@ Usage: lmainL"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) != 0:
-            err("Usage: lmainL")
+            raise gdb.GdbError("Usage: lmainL")
 
         L = get_global_L()
         out("(lua_State*)0x%x\n" % ptr2int(L))
@@ -492,7 +493,7 @@ Usage: lcurL"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) != 0:
-            err("Usage: lcurL")
+            raise gdb.GdbError("Usage: lcurL")
 
         L = get_cur_L()
         out("(lua_State*)0x%x\n" % ptr2int(L))
@@ -648,7 +649,7 @@ def ltype(tv):
     if t == LJ_TNUMX():
         return "number"
 
-    return "unknown"
+    return "number"
 
 def tvisudata(o):
     return itype(o) == LJ_TUDATA()
@@ -663,17 +664,20 @@ UDTYPE__MAX = 3
 
 udata_types = ['userdata', 'io file', 'ffi clib']
 
-class lvalue(gdb.Command):
+def uddata(u):
+    return (u + 1).cast(typ("void*"))
+
+class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
-Usage: lvalue tv"""
+Usage: lval tv"""
 
     def __init__ (self):
-        super (lvalue, self).__init__("lvalue", gdb.COMMAND_USER)
+        super (lval, self).__init__("lval", gdb.COMMAND_USER)
 
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
         if len(argv) != 1:
-            raise gdb.GdbError("Usage: lvalue tv")
+            raise gdb.GdbError("Usage: lval tv")
 
         m = re.match('0x[0-9a-fA-F]+', argv[0])
         if m:
@@ -697,6 +701,12 @@ Usage: lvalue tv"""
             out("udata type: %s\n" % udata_types[int(t)])
             out("      payload len: %d\n" % int(ud['len']))
             out("      payload ptr: 0x%x\n" % ptr2int(ud + 1))
+            if int(t) == UDTYPE_FFI_CLIB:
+                cl = uddata(ud).cast(typ("CLibrary*"))
+                out("      CLibrary handle: (void*)0x%x\n" % \
+                        ptr2int(cl['handle']))
+                out("      CLibrary cache: (GCtab*)0x%x\n" \
+                        % ptr2int(cl['cache']))
 
         elif tvisstr(o):
             gcs = strV(o)
@@ -706,4 +716,143 @@ Usage: lvalue tv"""
             out("type: %s\n" % ltype(o))
             out("TODO")
 
-lvalue()
+lval()
+
+class lproto(gdb.Command):
+    """This command prints out all the Lua prototypes (the GCproto* pointers) via the file name and file line number where the function is defined.
+Usage: lproto file lineno"""
+
+    def __init__ (self):
+        super (lproto, self).__init__("lproto", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 2:
+            raise gdb.GdbError("Usage: lproto file lineno")
+
+        L = get_cur_L()
+
+        fname = str(argv[0])
+        lineno = int(argv[1])
+
+        #print "g: ", hex(int(L['glref']['ptr32']))
+
+        g = G(L)
+
+        #print "lineno: %d" % lineno
+        #print "file: %s" % fname
+
+        p = g['gc']['root'].address
+        while p:
+            o = gcref(p)
+            if not o:
+                break
+            if o['gch']['gct'] == ~LJ_TPROTO():
+                pt = o['pt'].address
+                if pt['firstline'] == lineno:
+                    name = proto_chunkname(pt)
+                    if name:
+                        path = lstr2str(name)
+                        if string.find(path, fname) >= 0:
+                            out("Found Lua proto (GCproto*)0x%x at %s:%d\n" \
+                                    % (ptr2int(pt), path, lineno))
+            p = o['gch']['nextgc'].address
+
+lproto()
+
+def uvval(uv_):
+    return mref(uv_['v'], 'TValue')
+
+def proto_uvinfo(pt):
+    return mref(pt['uvinfo'], 'uint8_t')
+
+def lj_debug_uvname(pt, idx):
+    idx = newval("uint32_t", idx)
+    p = proto_uvinfo(pt)
+    if not p:
+        return ""
+    if idx:
+        while True:
+            c = p.dereference()
+            p += 1
+            if c:
+                continue
+            idx -= 1
+            #print "*p = %d, idx = %d\n" % (int(c), idx)
+            if not idx:
+                break
+    return p.cast(typ("char*")).string('iso-8859-6', 'ignore')
+
+def dump_upvalues(fn, pt):
+    uvptr = fn['l']['uvptr']
+    sizeuv = int(pt['sizeuv'])
+    out("Found %d upvalues.\n" % sizeuv)
+    for idx in xrange(0, sizeuv):
+        uv = gcref(uvptr[idx])['uv'].address
+        tvp = uvval(uv)
+        name = lj_debug_uvname(pt, idx)
+        out("upvalue %s: value=(TValue*)0x%x value_type=%s closed=%d\n" % \
+                (name, ptr2int(tvp), ltype(tvp), int(uv['closed'])))
+
+class lfunc(gdb.Command):
+    """This command prints out all the Lua functions (the GCfunc* pointers) via the file name and file line number where the function is defined.
+Usage: lfunc file lineno"""
+
+    def __init__ (self):
+        super (lfunc, self).__init__("lfunc", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 2:
+            raise gdb.GdbError("Usage: lfunc file lineno")
+
+        L = get_cur_L()
+
+        fname = str(argv[0])
+        lineno = int(argv[1])
+
+        #print "g: ", hex(int(L['glref']['ptr32']))
+
+        g = G(L)
+
+        #print "lineno: %d" % lineno
+        #print "file: %s" % fname
+
+        p = g['gc']['root'].address
+        while p:
+            o = gcref(p)
+            if not o:
+                break
+            if o['gch']['gct'] == ~LJ_TFUNC():
+                fn = o['fn'].address
+                pt = funcproto(fn)
+                if pt['firstline'] == lineno:
+                    name = proto_chunkname(pt)
+                    if name:
+                        path = lstr2str(name)
+                        if string.find(path, fname) >= 0:
+                            out("Found Lua function (GCfunc*)0x%x at %s:%d\n" \
+                                    % (ptr2int(fn), path, lineno))
+            p = o['gch']['nextgc'].address
+
+lfunc()
+
+class luv(gdb.Command):
+    """This command prints out all the upvalues in the GCfunc* pointer specified.
+Usage: luv fn"""
+
+    def __init__ (self):
+        super (luv, self).__init__("luv", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 1:
+            raise gdb.GdbError("Usage: luv fn")
+
+        fn = gdbutils.parse_ptr(argv[0], "GCfunc*")
+        #print str(fn)
+        pt = funcproto(fn)
+        dump_upvalues(fn, pt)
+
+luv()
+
