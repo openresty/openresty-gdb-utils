@@ -401,12 +401,14 @@ Usage: lbt [L]"""
 
         else:
             if vmstate == ~LJ_VMST_EXIT:
-                base = g['jit_base']
+                base = tvref(g['jit_base'])
                 if base:
                     bt = lj_debug_dumpstack(L, 0, 30, base)
+
                 else:
                     base = L['base']
                     bt = lj_debug_dumpstack(L, 0, 30, base)
+
             else:
                 if vmstate == ~LJ_VMST_INTERP and not L['cframe']:
                     out("No Lua code running.\n")
