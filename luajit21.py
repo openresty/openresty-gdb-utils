@@ -689,9 +689,12 @@ CTSHIFT_NUM = 28
 def ctype_type(info):
     return info >> CTSHIFT_NUM
 
-ctype_names = [ 'num', 'struct', 'ptr', 'array', '-', \
-        'void', 'enum', '-', 'func', 'typedef', 'attribute', 'field', \
+ctype_names = [ 'num', 'struct', 'ptr', 'array', \
+        'void', 'enum', 'func', 'typedef', 'attribute', 'field', \
         'bitfield', 'constant value', 'extern', 'keyworkd']
+
+def cdataptr(cd):
+    return (cd + 1).cast(typ("void*"))
 
 class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
@@ -743,12 +746,15 @@ Usage: lval tv"""
         elif tviscdata(o):
             cts = ctype_cts(mL)
             cd = cdataV(o)
+            ptr = cdataptr(cd)
             out("type cdata\n")
-            out("\tcdata pointer: (GCcdata*)0x%x\n" % ptr2int(cd))
+            out("\tcdata object: (GCcdata*)0x%x\n" % ptr2int(cd))
+            out("\tcdata value pointer: (void*)0x%x\n" % ptr2int(ptr))
             d = ctype_get(cts, cd['ctypeid'])
-            out("\tctype pointer: (CType*)0x%x\n" % ptr2int(d))
+            out("\tctype object: (CType*)0x%x\n" % ptr2int(d))
             out("\tctype size: %d byte(s)\n" % int(d['size']))
             t = int(ctype_type(d['info']))
+            #print "ctype type %d\n" % t
             if ctype_names[t]:
                 out("\tctype type: %s\n" % ctype_names[t])
             else:
@@ -904,3 +910,43 @@ Usage: luv fn"""
 
 luv()
 
+def tvisthread(o):
+    return itype(o) == LJ_TTHREAD()
+
+def threadV(o):
+    # &gcval(o)->th
+    return gcval(o)['th'].address
+
+def tabref(r):
+    return gcref(r)['tab'].address
+
+class lfenv(gdb.Command):
+    """This command prints out all the upvalues in the GCfunc* pointer specified.
+Usage: lfenv tv"""
+
+    def __init__ (self):
+        super (lfenv, self).__init__("lfenv", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+        if len(argv) != 1:
+            raise gdb.GdbError("Usage: lfenv tv")
+
+        o = gdbutils.parse_ptr(argv[0], "TValue*")
+
+        typstr = str(o.type)
+        #print "type: %s\n" % typstr
+        if typstr == "lua_State *":
+            tab = tabref(o['env'])
+            out("environment table: (GCtab*)0x%x\n" % ptr2int(tab))
+            return
+
+        if tvisthread(o):
+            o = threadV(o)
+            tab = tabref(threadV(o['env']))
+            out("environment table: (GCtab*)0x%x\n" % ptr2int(tab))
+
+        else:
+            out("TODO")
+
+lfenv()

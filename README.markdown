@@ -77,6 +77,15 @@ Synopsis
           CLibrary handle: (void*)0x0
           CLibrary cache: (GCtab*)0x41b8d188
 
+    (gdb) lval (TValue*)0x41907840
+    type cdata
+        cdata object: (GCcdata*)0x41aae7f0
+        cdata value pointer: (void*)0x41aae7f8
+        ctype object: (CType*)0x40268e70
+        ctype size: 1 byte(s)
+        ctype type: func
+        ctype element name: ngx_http_lua_ffi_destroy_regex
+
 Description
 ===========
 
