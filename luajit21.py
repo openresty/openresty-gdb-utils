@@ -977,3 +977,24 @@ Usage: lfenv tv"""
             out("TODO")
 
 lfenv()
+
+class lg(gdb.Command):
+    """This command prints out all the upvalues in the GCfunc* pointer specified.
+Usage: lg"""
+
+    def __init__ (self):
+        super (lg, self).__init__("lg", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) == 1:
+            L = gdbutils.parse_ptr(argv[0], "lua_State*")
+            if not L or str(L) == "void":
+                raise gdb.GdbError("L empty")
+        else:
+            L = get_global_L()
+
+        out("(global_State*)0x%x\n" % ptr2int(G(L)))
+
+lg()
