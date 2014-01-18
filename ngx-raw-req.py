@@ -116,7 +116,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
 
         else:
             #print "size:%d" % int(size)
-            data = request_line.cast(self.char_pointer_type)
+            data = request_line['data']
             #print "data type:%s" % data.type
             #print data
             size = int(size)
