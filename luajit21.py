@@ -145,6 +145,10 @@ def sizeof(typ):
 def gcref(r):
     return r['gcptr32'].cast(typ("uintptr_t")).cast(typ("GCobj*"))
 
+def gcrefp(r, t):
+    #((t *)(void *)(uintptr_t)(r).gcptr32)
+    return r['gcptr32'].cast(typ(t + "*"))
+
 def frame_gc(frame):
     return gcref(frame['fr']['func'])
 
@@ -609,6 +613,9 @@ ltabgets()
 
 def ltype(tv):
     t = tv['it']
+
+    #print "t = %d, lightud: %d" % (t, LJ_TLIGHTUD())
+
     if t == LJ_TNIL():
         return "nil"
 
@@ -650,6 +657,9 @@ def ltype(tv):
 
     if t == LJ_TNUMX():
         return "number"
+
+    if t.cast(typ("int32_t")) >> 15 == -2:
+        return "lightuserdata"
 
     return "number"
 
@@ -696,6 +706,16 @@ ctype_names = [ 'num', 'struct', 'ptr', 'array', \
 def cdataptr(cd):
     return (cd + 1).cast(typ("void*"))
 
+def tvislightud(o):
+    t = itype(o)
+    if t == LJ_TLIGHTUD():
+        return True
+
+    if t.cast(typ("int32_t")) >> 15 == -2:
+        return True
+
+    return False
+
 class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
 Usage: lval tv"""
@@ -725,6 +745,9 @@ Usage: lval tv"""
         if typstr == "GCstr *":
             out("GCstr: \"%s\" (len %d)\n" % (lstr2str(o), o['len']))
             return
+
+        if typstr != "TValue *":
+            raise gdb.GdbError("TValue * expected")
 
         if tvisudata(o):
             ud = udataV(o)
@@ -762,6 +785,10 @@ Usage: lval tv"""
             s = strref(d['name'])
             if s:
                 out("\tctype element name: %s\n" % lstr2str(s))
+
+        elif tvislightud(o):
+            out("light user data: (void*)0x%x\n" % ptr2int(gcrefp(o['gcr'], 'void')))
+            return
 
         else:
             out("type: %s\n" % ltype(o))
