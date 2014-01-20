@@ -174,7 +174,7 @@ Also, you are required to use gdb 7.6+ with python support enabled.
 Installation
 ============
 
-See (Prerequisites)[#prerequisites] first.
+See [Prerequisites](#prerequisites) first.
 
 And then
 
