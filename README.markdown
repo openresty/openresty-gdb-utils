@@ -14,6 +14,7 @@ Table of Contents
     * [lbt](#lbt)
     * [lvmst](#lvmst)
 * [Prerequisites](#prerequisites)
+* [Installation](#installation)
 * [Authors](#authors)
 * [Copyright and License](#copyright-and-license)
 * [See Also](#see-also)
@@ -167,6 +168,32 @@ To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line arg
     make CCDEBUG=-g
 
 Also, you are required to use gdb 7.6+ with python support enabled.
+
+[Back to TOC](#table-of-contents)
+
+Installation
+============
+
+See (Prerequisites)[#prerequisites] first.
+
+And then
+
+1. check out this project locally.
+2. add the following lines to your `~/.gdbinit` (you *must* change the `/path/to` part to the real path):
+
+```gdb
+directory /path/to/nginx-gdb-utils
+
+py import sys
+py sys.path.append("/path/to/nginx-gdb-utils")
+
+source luajit20.gdb
+source ngx-lua.gdb
+source ltab.py
+source luajit21.py
+source ngx-raw-req.py
+set python print-stack full
+```
 
 [Back to TOC](#table-of-contents)
 
