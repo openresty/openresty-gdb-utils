@@ -979,8 +979,8 @@ Usage: lfenv tv"""
 lfenv()
 
 class lg(gdb.Command):
-    """This command prints out all the upvalues in the GCfunc* pointer specified.
-Usage: lg"""
+    """This command prints out the global_State * pointer.
+Usage: lg [L]"""
 
     def __init__ (self):
         super (lg, self).__init__("lg", gdb.COMMAND_USER)
@@ -998,3 +998,39 @@ Usage: lg"""
         out("(global_State*)0x%x\n" % ptr2int(G(L)))
 
 lg()
+
+class ltrace(gdb.Command):
+    """This command prints out all the upvalues in the GCfunc* pointer specified.
+Usage: ltrace"""
+
+    def __init__ (self):
+        super (ltrace, self).__init__("ltrace", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: ltrace trace-no")
+
+        traceno = int(argv[0])
+        L = get_global_L()
+
+        if traceno < 0:
+            raise gdb.GdbError("bad trace number")
+
+        g = G(L)
+        J = G2J(g)
+        T = traceref(J, traceno)
+        out("(GCtrace*)0x%x\n" % ptr2int(T))
+        out("mcode start addr: 0x%x\n" % ptr2int(T['mcode']))
+        out("mcode end addr: 0x%x\n" % (ptr2int(T['mcode']) + int(T['szmcode'])))
+        pt = gcref(T['startpt'])['pt'].address
+        pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+        line = lj_debug_line(pt, pc)
+        name = proto_chunkname(pt)
+        if name:
+            path = lstr2str(name)
+            out("%s:%d\n" % (path, line))
+
+ltrace()
+
