@@ -1044,3 +1044,30 @@ Usage: ltrace"""
 
 ltrace()
 
+class lpc(gdb.Command):
+    """This command prints out the source line position for the current pc.
+Usage: lpc pc pt"""
+
+    def __init__ (self):
+        super (lpc, self).__init__("lpc", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 2:
+            raise gdb.GdbError("usage: lpc pc pt")
+
+        pc = gdbutils.parse_ptr(argv[0], "BCIns*")
+        pt = gdbutils.parse_ptr(argv[1], "GCproto*")
+
+        out("pc type: %s\n" % str(pc.type))
+        out("pt type: %s\n" % str(pt.type))
+
+        line = lj_debug_line(pt, pc)
+        name = proto_chunkname(pt)
+        if name:
+            path = lstr2str(name)
+            out("%s:%d\n" % (path, line))
+
+lpc()
+
