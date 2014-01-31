@@ -1022,15 +1022,18 @@ Usage: ltrace"""
         J = G2J(g)
         T = traceref(J, traceno)
         out("(GCtrace*)0x%x\n" % ptr2int(T))
-        out("mcode start addr: 0x%x\n" % ptr2int(T['mcode']))
-        out("mcode end addr: 0x%x\n" % (ptr2int(T['mcode']) + int(T['szmcode'])))
-        pt = gcref(T['startpt'])['pt'].address
-        pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
-        line = lj_debug_line(pt, pc)
-        name = proto_chunkname(pt)
-        if name:
-            path = lstr2str(name)
-            out("%s:%d\n" % (path, line))
+        if T:
+            szmcode = int(T['szmcode'])
+            out("mcode size: %d\n" % szmcode)
+            out("mcode start addr: 0x%x\n" % ptr2int(T['mcode']))
+            out("mcode end addr: 0x%x\n" % (ptr2int(T['mcode']) + szmcode))
+            pt = gcref(T['startpt'])['pt'].address
+            pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+            line = lj_debug_line(pt, pc)
+            name = proto_chunkname(pt)
+            if name:
+                path = lstr2str(name)
+                out("%s:%d\n" % (path, line))
 
 ltrace()
 
