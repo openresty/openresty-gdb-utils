@@ -746,6 +746,13 @@ Usage: lval tv"""
             out("GCstr: \"%s\" (len %d)\n" % (lstr2str(o), o['len']))
             return
 
+        if typstr == "GCproto *":
+            name = proto_chunkname(o)
+            if name:
+                path = lstr2str(name)
+                out("proto definition: %s:%d\n" % (path, int(o['firstline'])))
+            return
+
         if typstr != "TValue *":
             raise gdb.GdbError("TValue * expected")
 
