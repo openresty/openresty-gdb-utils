@@ -53,6 +53,9 @@ def LJ_TUDATA():
 def LJ_TNUMX():
     return ~newval("unsigned int", 13)
 
+def LJ_TISNUM():
+    return newval("unsigned int", 0xfffeffff)
+
 FRAME_LUA = 0
 FRAME_C = 1
 FRAME_CONT = 2
@@ -291,7 +294,68 @@ def G(L):
 def cframe_raw(cf):
     return (cf.cast(typ("intptr_t")) & CFRAME_RAWMASK).cast(typ("void*"))
 
-def lj_debug_dumpstack(L, T, depth, base):
+def proto_varinfo(pt):
+    return mref(pt['varinfo'], 'uint8_t')
+
+VARNAME_END = 0
+VARNAME__MAX = 7
+
+def lj_buf_ruleb128(p):
+    v = p.dereference().cast(typ("uint32_t"))
+    p += 1
+    if v >= 0x80:
+        sh = 0
+        v = v & 0x7f
+        while True:
+            sh += 7
+            v = v | ((p.dereference() & 0x7f) << sh)
+            if p.dereference() < 0x80:
+                p += 1
+                break
+            p += 1
+    return v, p
+
+builtin_variable_names = [ \
+        "(for index)", \
+        "(for limit)", \
+        "(for step)", \
+        "(for generator)", \
+        "(for state)", \
+        "(for control)"]
+
+def debug_varname(pt, pc, slot):
+    p = proto_varinfo(pt).cast(typ("char*"))
+    if p:
+        lastpc = 0
+        while True:
+            name = p
+            vn = p.cast(typ("uint8_t*")).dereference().cast(typ("uint32_t"))
+            if vn < VARNAME__MAX:
+                if vn == VARNAME_END:
+                    break
+            else:
+                while True:
+                    p += 1
+                    if p.cast(typ("uint8_t*")).dereference() == 0:
+                        break
+            p += 1
+            v, p = lj_buf_ruleb128(p)
+            startpc = lastpc + v
+            lastpc = startpc
+            if startpc > pc:
+                break
+            v, p = lj_buf_ruleb128(p)
+            endpc = startpc + v
+            if pc < endpc and slot == 0:
+                if vn < VARNAME__MAX:
+                    out("\tlocal \"%s\"\n" % builtin_variable_names[int(vn - 1)])
+                else:
+                    out("\tlocal \"%s\":\n" % name.string('iso-8859-6', 'ignore'))
+                return True
+            slot = slot - 1
+    return False
+
+def lj_debug_dumpstack(L, T, depth, base, full):
     global cfunc_cache
 
     level = 0
@@ -301,10 +365,10 @@ def lj_debug_dumpstack(L, T, depth, base):
         depth = dir = -1
 
     bot = tvref(L['stack'])
-    bt = ""
     while level != depth:
         #print "checking level: %d" % level
 
+        bt = ""
         frame, size = lj_debug_frame(L, base, level, bot)
 
         if frame:
@@ -312,7 +376,9 @@ def lj_debug_dumpstack(L, T, depth, base):
             fn = frame_func(frame)
             #print "type(fn) == %s" % fn.type
             if not fn:
-                return ""
+                return
+
+            pt = None
 
             if isluafunc(fn):
                 pt = funcproto(fn)
@@ -348,6 +414,21 @@ def lj_debug_dumpstack(L, T, depth, base):
                 bt += sym
                 #print "bt: " + sym
 
+            out(bt)
+
+            if full:
+                if not pt:
+                    pt = funcproto(fn)
+                pc = debug_framepc(L, T, fn, pt, nextframe)
+                if pc != NO_BCPOS:
+                    nf = nextframe
+                    if not nf:
+                        nf = L['top']
+                    for slot in xrange(1, nf - frame):
+                        tv = frame + slot
+                        if debug_varname(pt, pc, slot - 1):
+                            dump_tvalue(tv)
+
         elif dir == 1:
             break
 
@@ -377,15 +458,27 @@ Usage: lbt [L]"""
 
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
-        if len(argv) > 1:
-            raise gdb.GdbError("Usage: lbt [L]")
+        if len(argv) > 2:
+            raise gdb.GdbError("Usage: lbt [full] [L]")
 
-        if len(argv) == 1:
-            L = gdbutils.parse_ptr(argv[0], "lua_State*")
-            if not L or str(L) == "void":
-                raise gdb.GdbError("L empty")
+        full = False
+
+        if len(argv) > 0 and argv[0] == "full":
+            full = True
+            if len(argv) == 2:
+                L = gdbutils.parse_ptr(argv[1], "lua_State*")
+                if not L or str(L) == "void":
+                    raise gdb.GdbError("L empty")
+            else:
+                L = get_cur_L()
+
         else:
-            L = get_cur_L()
+            if len(argv) == 1:
+                L = gdbutils.parse_ptr(argv[0], "lua_State*")
+                if not L or str(L) == "void":
+                    raise gdb.GdbError("L empty")
+            else:
+                L = get_cur_L()
 
         #print "g: ", hex(int(L['glref']['ptr32']))
 
@@ -402,17 +495,17 @@ Usage: lbt [L]"""
             base = tvref(g['jit_base'])
             if not base:
                 raise gdb.GdbError("jit base is NULL")
-            bt = lj_debug_dumpstack(L, T, 30, base)
+            bt = lj_debug_dumpstack(L, T, 30, base, full)
 
         else:
             if vmstate == ~LJ_VMST_EXIT:
                 base = tvref(g['jit_base'])
                 if base:
-                    bt = lj_debug_dumpstack(L, 0, 30, base)
+                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
 
                 else:
                     base = L['base']
-                    bt = lj_debug_dumpstack(L, 0, 30, base)
+                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
 
             else:
                 if vmstate == ~LJ_VMST_INTERP and not L['cframe']:
@@ -423,14 +516,11 @@ Usage: lbt [L]"""
                        vmstate == ~LJ_VMST_C or \
                        vmstate == ~LJ_VMST_GC:
                     base = L['base']
-                    bt = lj_debug_dumpstack(L, 0, 30, base)
+                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
 
                 else:
                     out("No Lua code running.\n")
                     return
-        if not bt:
-            out("Empty backtrace.\n")
-        out(bt)
 
 lbt()
 
@@ -538,8 +628,23 @@ def itype(o):
 def tvisnil(o):
     return itype(o) == LJ_TNIL()
 
+def tvisfunc(o):
+    return itype(o) == LJ_TFUNC()
+
+def tvistrue(o):
+    return itype(o) == LJ_TTRUE()
+
+def tvisfalse(o):
+    return itype(o) == LJ_TFALSE()
+
 def tvisstr(o):
     return itype(o) == LJ_TSTR()
+
+def tvisnumber(o):
+    return itype(o) <= LJ_TISNUM()
+
+def tvisint(o):
+    return itype(o) == LJ_TISNUM()
 
 def strV(o):
     return gcval(o)['str'].address
@@ -716,6 +821,91 @@ def tvislightud(o):
 
     return False
 
+def intV(o):
+    return o['i'].cast(typ("int32_t"))
+
+def dump_tvalue(o):
+    if tvisudata(o):
+        ud = udataV(o)
+        t = ud['udtype']
+        out("\t\tudata type: %s\n" % udata_types[int(t)])
+        out("\t\t      payload len: %d\n" % int(ud['len']))
+        out("\t\t      payload ptr: 0x%x\n" % ptr2int(ud + 1))
+        if int(t) == UDTYPE_FFI_CLIB:
+            cl = uddata(ud).cast(typ("CLibrary*"))
+            out("\t\t      CLibrary handle: (void*)0x%x\n" % \
+                    ptr2int(cl['handle']))
+            out("\t\t      CLibrary cache: (GCtab*)0x%x\n" \
+                    % ptr2int(cl['cache']))
+
+    elif tvisstr(o):
+        gcs = strV(o)
+        out("\t\tstring: \"%s\" (len %d)\n" % (lstr2str(gcs), int(gcs['len'])))
+
+    elif tviscdata(o):
+        mL = get_global_L()
+        cts = ctype_cts(mL)
+        cd = cdataV(o)
+        ptr = cdataptr(cd)
+        out("\t\ttype cdata\n")
+        out("\t\t\tcdata object: (GCcdata*)0x%x\n" % ptr2int(cd))
+        out("\t\t\tcdata value pointer: (void*)0x%x\n" % ptr2int(ptr))
+        d = ctype_get(cts, cd['ctypeid'])
+        out("\t\t\tctype object: (CType*)0x%x\n" % ptr2int(d))
+        out("\t\t\tctype size: %d byte(s)\n" % int(d['size']))
+        t = int(ctype_type(d['info']))
+        #print "ctype type %d\n" % t
+        if ctype_names[t]:
+            out("\t\t\tctype type: %s\n" % ctype_names[t])
+        else:
+            err("\t\t\tunknown ctype type: %d\n" % t)
+        s = strref(d['name'])
+        if s:
+            out("\t\t\t\tctype element name: %s\n" % lstr2str(s))
+
+    elif tvislightud(o):
+        out("\t\tlight user data: (void*)0x%x\n" % ptr2int(gcrefp(o['gcr'], 'void')))
+        return
+
+    elif tvisint(o):
+        out("\t\tint %d\n" % int(intV(o)))
+
+    elif tvisnumber(o):
+        out("\t\tnumber\n")
+
+    elif tvisnil(o):
+        out("\t\tnil\n")
+
+    elif tvistrue(o):
+        out("\t\ttrue\n")
+
+    elif tvisfalse(o):
+        out("\t\tfalse\n")
+
+    elif tvisfunc(o):
+        fn = gcval(o)['fn'].address
+        pt = funcproto(fn)
+        if pt:
+            lineno = pt['firstline']
+            #print "proto: 0x%x\n" % ptr2int(pt)
+            name = proto_chunkname(pt)
+            #print "name: 0x%x\n" % ptr2int(name)
+            #print "len: %d\n" % int(name['len'])
+            if name:
+                try:
+                    path = lstr2str(name)
+                    out("\t\tLua function (GCfunc*)0x%x at %s:%d\n" \
+                            % (ptr2int(fn), path, lineno))
+                    return
+
+                except Exception as e:
+                    out("ERROR: failed to resolve chunk name: %s\n" % e)
+
+        out("\t\tfunction (0x%x)\n" % ptr2int(o))
+
+    else:
+        out("\t\t%s (0x%x)\n" % (ltype(o), ptr2int(o)))
+
 class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
 Usage: lval tv"""
@@ -756,50 +946,7 @@ Usage: lval tv"""
         if typstr != "TValue *":
             raise gdb.GdbError("TValue * expected")
 
-        if tvisudata(o):
-            ud = udataV(o)
-            t = ud['udtype']
-            out("udata type: %s\n" % udata_types[int(t)])
-            out("      payload len: %d\n" % int(ud['len']))
-            out("      payload ptr: 0x%x\n" % ptr2int(ud + 1))
-            if int(t) == UDTYPE_FFI_CLIB:
-                cl = uddata(ud).cast(typ("CLibrary*"))
-                out("      CLibrary handle: (void*)0x%x\n" % \
-                        ptr2int(cl['handle']))
-                out("      CLibrary cache: (GCtab*)0x%x\n" \
-                        % ptr2int(cl['cache']))
-
-        elif tvisstr(o):
-            gcs = strV(o)
-            out("string: \"%s\" (len %d)" % (lstr2str(gcs), int(gcs['len'])))
-
-        elif tviscdata(o):
-            cts = ctype_cts(mL)
-            cd = cdataV(o)
-            ptr = cdataptr(cd)
-            out("type cdata\n")
-            out("\tcdata object: (GCcdata*)0x%x\n" % ptr2int(cd))
-            out("\tcdata value pointer: (void*)0x%x\n" % ptr2int(ptr))
-            d = ctype_get(cts, cd['ctypeid'])
-            out("\tctype object: (CType*)0x%x\n" % ptr2int(d))
-            out("\tctype size: %d byte(s)\n" % int(d['size']))
-            t = int(ctype_type(d['info']))
-            #print "ctype type %d\n" % t
-            if ctype_names[t]:
-                out("\tctype type: %s\n" % ctype_names[t])
-            else:
-                err("\tunknown ctype type: %d\n" % t)
-            s = strref(d['name'])
-            if s:
-                out("\tctype element name: %s\n" % lstr2str(s))
-
-        elif tvislightud(o):
-            out("light user data: (void*)0x%x\n" % ptr2int(gcrefp(o['gcr'], 'void')))
-            return
-
-        else:
-            out("type: %s\n" % ltype(o))
-            out("TODO")
+        dump_tvalue(o)
 
 lval()
 
