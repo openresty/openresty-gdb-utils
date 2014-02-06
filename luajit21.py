@@ -69,7 +69,7 @@ CFRAME_RESUME = 1
 CFRAME_UNWIND_FF = 2
 CFRAME_RAWMASK = ~(CFRAME_RESUME|CFRAME_UNWIND_FF)
 CFRAME_OFS_L = 416
-CFRAME_OFS_PC = 412
+CFRAME_OFS_PC = 7*4  # for x86_64 (non-windows)
 
 cfunc_cache = {}
 
@@ -117,7 +117,7 @@ def tabV(o):
 
 def cframe_pc(cf):
     #print("CFRAME!!")
-    return mref((cf.cast(typ("char*")) + CFRAME_OFS_PC).cast(typ("MRef*")), \
+    return mref((cf.cast(typ("char*")) + CFRAME_OFS_PC).cast(typ("MRef*")).dereference(), \
                 "BCIns")
 
 def cframe_L(cf):
@@ -248,24 +248,26 @@ def debug_framepc(L, T, fn, pt, nextframe):
         return NO_BCPOS
     if not nextframe:
         cf = cframe_raw(L['cframe'])
+        #print("cf 0x%x" % ptr2int(cf))
         if not cf or cframe_pc(cf) == cframe_L(cf):
             return NO_BCPOS
         ins = cframe_pc(cf)
+        #print("cframe pc: [0x%x]" % ptr2int(ins))
     else:
         if frame_islua(nextframe):
+            #print("frame pc")
             ins = frame_pc(nextframe)
         elif frame_iscont(nextframe):
+            #print("frame contpc")
             ins = frame_contpc(nextframe)
         else:
             warn("Lua function below errfunc/gc/hook not supported yet")
             return NO_BCPOS
     pos = proto_bcpos(pt, ins) - 1
     if pos > pt['sizebc']:
-        if not T:
-            # TODO
-            #T = ((ins - 1).cast(typ("char*")) - \
-                    #typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
-            return NO_BCPOS
+        T = ((ins - 1).cast(typ("char*")) - \
+                typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
+        #print("T: %d" % int(T['traceno']))
         pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
     return pos
 
@@ -274,6 +276,7 @@ def debug_frameline(L, T, fn, pt, nextframe):
     if pc != NO_BCPOS:
         pt = funcproto(fn)
         return lj_debug_line(pt, pc)
+    #print("pc == %d" % pc)
     return -1
 
 def strref(r):
@@ -383,7 +386,8 @@ def lj_debug_dumpstack(L, T, depth, base, full):
             if isluafunc(fn):
                 pt = funcproto(fn)
                 line = debug_frameline(L, T, fn, pt, nextframe)
-                if line < 0:
+                #print("line: %d\n" % line)
+                if line <= 0:
                     #print str(pt.dereference)
                     line = int(pt['firstline'])
                 name = proto_chunkname(pt)
