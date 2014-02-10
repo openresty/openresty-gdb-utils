@@ -28,7 +28,7 @@ def typ(typestr):
 def parse_ptr(val, t):
     m = re.match('0[xX][0-9a-fA-F]+', val)
     if m:
-        return newval("lua_State*", int(val, 16))
+        return newval(t, int(val, 16))
     return gdb.parse_and_eval(val)
 
 def err(s):

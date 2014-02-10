@@ -241,6 +241,7 @@ def lj_debug_line(pt, pc):
             return first + lineinfo.cast(typ("uint16_t*"))[pc].cast(typ("BCLine"))
         else:
             return first + lineinfo.cast(typ("uint32_t*"))[pc].cast(typ("BCLine"))
+    #print "Nothing: ", str(lineinfo)
     return 0
 
 def debug_framepc(L, T, fn, pt, nextframe):
@@ -252,7 +253,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
         if not cf or cframe_pc(cf) == cframe_L(cf):
             return NO_BCPOS
         ins = cframe_pc(cf)
-        #print("cframe pc: [0x%x]" % ptr2int(ins))
+        print("cframe pc: [0x%x]" % ptr2int(ins))
     else:
         if frame_islua(nextframe):
             #print("frame pc")
@@ -267,7 +268,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
     if pos > pt['sizebc']:
         T = ((ins - 1).cast(typ("char*")) - \
                 typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
-        #print("T: %d" % int(T['traceno']))
+        print("T: %d" % int(T['traceno']))
         pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
     return pos
 
@@ -1195,9 +1196,30 @@ Usage: ltrace"""
 
 ltrace()
 
+def locate_pc(pc):
+    L = get_cur_L()
+    g = G(L)
+    p = g['gc']['root'].address
+    while p:
+        o = gcref(p)
+        if not o:
+            break
+        if o['gch']['gct'] == ~LJ_TPROTO():
+            pt = o['pt'].address
+            pos = proto_bcpos(pt, pc) - 1
+            if pos <= pt['sizebc'] and pos >= 0:
+                out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
+                name = proto_chunkname(pt)
+                if name:
+                    path = lstr2str(name)
+                    line = lj_debug_line(pt, pos)
+                    out("source line: %s:%d\n" % (path, line))
+
+        p = o['gch']['nextgc'].address
+
 class lpc(gdb.Command):
     """This command prints out the source line position for the current pc.
-Usage: lpc pc pt"""
+Usage: lpc pc"""
 
     def __init__ (self):
         super (lpc, self).__init__("lpc", gdb.COMMAND_USER)
@@ -1205,20 +1227,50 @@ Usage: lpc pc pt"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
 
-        if len(argv) != 2:
-            raise gdb.GdbError("usage: lpc pc pt")
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: lpc pc")
 
         pc = gdbutils.parse_ptr(argv[0], "BCIns*")
-        pt = gdbutils.parse_ptr(argv[1], "GCproto*")
 
         out("pc type: %s\n" % str(pc.type))
-        out("pt type: %s\n" % str(pt.type))
 
-        line = lj_debug_line(pt, pc)
-        name = proto_chunkname(pt)
-        if name:
-            path = lstr2str(name)
-            out("%s:%d\n" % (path, line))
+        locate_pc(pc)
 
 lpc()
 
+class lringbuf(gdb.Command):
+    """This command prints out agentzh's ring buffer in LuaJIT core
+Usage: lringbuf"""
+
+    def __init__ (self):
+        super (lringbuf, self).__init__("lringbuf", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        rb_var = gdb.lookup_symbol("ringbuffer")[0]
+        if rb_var:
+            rb = rb_var.value()
+            start = gdb.lookup_symbol("rb_start")[0].value()
+            end = gdb.lookup_symbol("rb_end")[0].value()
+            if start < end:
+                i = start
+                while i < end:
+                    out("%s\n" % rb[i].string('iso-8859-6', 'ignore'))
+                    i += 1
+            else:
+                rblen = gdb.lookup_symbol("rb_full")[0].value()
+                if rblen:
+                    i = start
+                    while i < rblen:
+                        out("%s\n" % rb[i].string('iso-8859-6', 'ignore'))
+                        i += 1
+                    i = 0
+                    while i < end:
+                        out("%s\n" % rb[i].string('iso-8859-6', 'ignore'))
+                        i += 1
+                else:
+                    if start == 0 and end == 0:
+                        out("<empty>\n")
+                    else:
+                        raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" % (int(start), int(end), int(rblen)))
+
+lringbuf()
