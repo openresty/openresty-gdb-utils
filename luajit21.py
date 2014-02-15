@@ -721,8 +721,9 @@ Usage: ltabgets tab field"""
 
 ltabgets()
 
-def ltype(tv):
-    t = tv['it']
+def ltype(tv, t):
+    if not t:
+        t = tv['it']
 
     #print "t = %d, lightud: %d" % (t, LJ_TLIGHTUD())
 
@@ -751,7 +752,7 @@ def ltype(tv):
         return "proto"
 
     if t == LJ_TFUNC():
-        return "func"
+        return "function"
 
     if t == LJ_TTRACE():
         return "trace"
@@ -948,8 +949,9 @@ Usage: lval tv"""
                 out("proto definition: %s:%d\n" % (path, int(o['firstline'])))
             return
 
-        if typstr != "TValue *":
-            raise gdb.GdbError("TValue * expected")
+        m = re.search(r'TValue', typstr)
+        if not m:
+            raise gdb.GdbError("TValue * expected, but got %s" % typstr)
 
         dump_tvalue(o)
 
@@ -1214,6 +1216,7 @@ def locate_pc(pc):
                     path = lstr2str(name)
                     line = lj_debug_line(pt, pos)
                     out("source line: %s:%d\n" % (path, line))
+                    out("proto first line: %d\n" % int(pt['firstline']))
 
         p = o['gch']['nextgc'].address
 
@@ -1274,3 +1277,682 @@ Usage: lringbuf"""
                         raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" % (int(start), int(end), int(rblen)))
 
 lringbuf()
+
+REF_BIAS = 0x8000
+
+irnames = "LT    GE    LE    GT    ULT   UGE   ULE   UGT   EQ    NE    ABC   RETF  NOP   BASE  PVAL  GCSTEPHIOP  LOOP  USE   PHI   RENAMEPROF  KPRI  KINT  KGC   KPTR  KKPTR KNULL KNUM  KINT64KSLOT BNOT  BSWAP BAND  BOR   BXOR  BSHL  BSHR  BSAR  BROL  BROR  ADD   SUB   MUL   DIV   MOD   POW   NEG   ABS   ATAN2 LDEXP MIN   MAX   FPMATHADDOV SUBOV MULOV AREF  HREFK HREF  NEWREFUREFO UREFC FREF  STRREFLREF  ALOAD HLOAD ULOAD FLOAD XLOAD SLOAD VLOAD ASTOREHSTOREUSTOREFSTOREXSTORESNEW  XSNEW TNEW  TDUP  CNEW  CNEWI BUFHDRBUFPUTBUFSTRTBAR  OBAR  XBAR  CONV  TOBIT TOSTR STRTO CALLN CALLA CALLL CALLS CALLXSCARG  "
+
+ircall = ("lj_str_cmp", "lj_str_find", "lj_str_new", "lj_strscan_num", "lj_strfmt_int",
+"lj_strfmt_num",
+"lj_strfmt_char",
+"lj_strfmt_putint",
+"lj_strfmt_putnum",
+"lj_strfmt_putquoted",
+"lj_strfmt_putfxint",
+"lj_strfmt_putfnum_int",
+"lj_strfmt_putfnum_uint",
+"lj_strfmt_putfnum",
+"lj_strfmt_putfstr",
+"lj_strfmt_putfchar",
+"lj_buf_putmem",
+"lj_buf_putstr",
+"lj_buf_putchar",
+"lj_buf_putstr_reverse",
+"lj_buf_putstr_lower",
+"lj_buf_putstr_upper",
+"lj_buf_putstr_rep",
+"lj_buf_puttab",
+"lj_buf_tostr",
+"lj_tab_new_ah",
+"lj_tab_new1",
+"lj_tab_dup",
+"lj_tab_clear",
+"lj_tab_newkey",
+"lj_tab_len",
+"lj_gc_step_jit",
+"lj_gc_barrieruv",
+"lj_mem_newgco",
+"lj_math_random_step",
+"lj_vm_modi",
+"sinh",
+"cosh",
+"tanh",
+"fputc",
+"fwrite",
+"fflush",
+"lj_vm_floor",
+"lj_vm_ceil",
+"lj_vm_trunc",
+"sqrt",
+"exp",
+"lj_vm_exp2",
+"log",
+"lj_vm_log2",
+"log10",
+"sin",
+"cos",
+"tan",
+"lj_vm_powi",
+"pow",
+"atan2",
+"ldexp",
+"lj_vm_tobit",
+"softfp_add",
+"softfp_sub",
+"softfp_mul",
+"softfp_div",
+"softfp_cmp",
+"softfp_i2d",
+"softfp_d2i",
+"softfp_ui2d",
+"softfp_f2d",
+"softfp_d2ui",
+"softfp_d2f",
+"softfp_i2f",
+"softfp_ui2f",
+"softfp_f2i",
+"softfp_f2ui",
+"fp64_l2d",
+"fp64_ul2d",
+"fp64_l2f",
+"fp64_ul2f",
+"fp64_d2l",
+"fp64_d2ul",
+"fp64_f2l",
+"fp64_f2ul",
+"lj_carith_divi64",
+"lj_carith_divu64",
+"lj_carith_modi64",
+"lj_carith_modu64",
+"lj_carith_powi64",
+"lj_carith_powu64",
+"lj_cdata_newv",
+"lj_cdata_setfin",
+"strlen",
+"memcpy",
+"memset",
+"lj_vm_errno",
+"lj_carith_mul64",
+"lj_carith_shl64",
+"lj_carith_shr64",
+"lj_carith_sar64",
+"lj_carith_rol64",
+"lj_carith_ror64",
+)
+
+map_regs_Q = [ "rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
+	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" ]
+
+map_regs_X = [ "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
+	"xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15" ]
+
+def regname64(r):
+    if r < 16:
+        return map_regs_Q[int(r + 1 - 1)]
+    return map_regs_X[int(r - 15 - 1)]
+
+irtype = [
+  "nil",
+  "fal",
+  "tru",
+  "lud",
+  "str",
+  "p32",
+  "thr",
+  "pro",
+  "fun",
+  "p64",
+  "cdt",
+  "tab",
+  "udt",
+  "flt",
+  "num",
+  "i8 ",
+  "u8 ",
+  "i16",
+  "u16",
+  "int",
+  "u32",
+  "i64",
+  "u64",
+  "sfp",
+]
+
+def ridsp_name(ridsp, ins):
+    rid = (ridsp & 0xff)
+    slot = (ridsp >> 8)
+    if rid == 253 or rid == 254:
+        if slot == 0 or slot == 255:
+            return " {sink"
+        return "{%04d" % (ins - slot)
+    if ridsp > 255:
+        return "[%x]" % (slot * 4)
+    if rid < 128:
+        return regname64(rid)
+    return ""
+
+def irm_op1(m):
+    return (m & 3).cast(typ("IRMode"))
+
+def irm_op2(m):
+    return ((m >> 2) & 3).cast(typ("IRMode"))
+
+IRMref = 0
+
+def litname_SLOAD(mode):
+    s = ""
+    #print("mode=%d\n" % mode)
+    if (mode & 1) != 0:
+        s += "P"
+    if (mode & 2) != 0:
+        s += "F"
+    if (mode & 4) != 0:
+        s += "T"
+    if (mode & 8) != 0:
+        s += "C"
+    if (mode & 16) != 0:
+        s += "R"
+    if (mode & 32) != 0:
+        s += "I"
+    return s
+
+irfield = [ "str.len", "func.env", "func.pc", "thread.env", "tab.meta", "tab.array", "tab.node", "tab.asize", "tab.hmask", "tab.nomm", "udata.meta", "udata.udtype", "udata.file", "cdata.ctypeid", "cdata.ptr", "cdata.int", "cdata.int64", "cdata.int64_4" ]
+
+def litname_irfield(mode):
+    return irfield[int(mode)]
+
+def litname_XLOAD(mode):
+    a = ["", "R", "V", "RV", "U", "RU", "VU", "RVU"]
+    return a[int(mode)]
+
+def litname_CONV(mode):
+    s = irtype[int(mode & 31)]
+    s = irtype[int((mode >> 5) & 31)] + "." + s
+    if (mode & 0x800) != 0:
+        s += " sext"
+    c = (mode >> 14)
+    if c == 2:
+        s += " index"
+    elif c == 3:
+        s += " check"
+    return s
+
+irfpm = ["floor", "ceil", "trunc", "sqrt", "exp", "exp2", "log", "log2", "log10", "sin", "cos", "tan", "other"]
+
+def litname_FPMATH(mode):
+    return irfpm[int(mode)]
+
+def litname(op):
+    if op == "SLOAD ":
+        return litname_SLOAD
+
+    if op == "XLOAD ":
+        return litname_XLOAD
+
+    if op == "CONV  ":
+        return litname_CONV
+
+    if op == "FLOAD " or op == "FREF  ":
+        return litname_irfield
+
+    if op == "FPMATH":
+        return litname_FPMATH
+
+    if op == "BUFHDR":
+        return litname_BUFHDR
+
+    if op == "TOSTR ":
+        return litname_TOSTR
+
+    return None
+
+IR_KSLOT = 30
+
+IR_KPRI = 22
+IR_KINT = 23
+IR_KGC = 24
+IR_KPTR = 25
+IR_KKPTR = 26
+IR_KNULL = 27
+
+def irt_toitype_(t):
+    if t > IRT_NUM:
+        return "number"
+
+    return ltype(None, ~(t.cast(typ("uint32_t"))))
+
+def irt_type(t):
+    return (t['irt'] & IRT_TYPE).cast(typ("IRType"))
+
+def irt_toitype(t):
+    return irt_toitype_(irt_type(t))
+
+def ir_kgc(ir):
+    return gcref(ir['gcr'])
+
+def ir_knum(ir):
+    return mref(ir['ptr'], "TValue")
+
+def lj_ir_kvalue(ir):
+    t = ir['o']
+    if t == IR_KPRI:
+        it = irt_toitype(ir['t'])
+        return it, it
+
+    if t == IR_KGC:
+        it = irt_toitype(ir['t'])
+        return ir_kgc(ir), it
+
+    if t == IR_KINT:
+        return int(ir['i']), "number"
+
+    if t == IR_KNULL:
+        return 0, "userdata"
+
+    if t == IR_KPTR or t == IR_KKPTR:
+        return ptr2int(mref(ir['ptr'], "void")), "userdata"
+
+    if t == IR_KNUM:
+        return float(ir_knum(ir)['n']), "number"
+
+    return None, "unknown"
+
+IRT_TYPE = 0x1f
+IRT_NUM = 14
+
+def irt_type(t):
+    return (t['irt'] & IRT_TYPE).cast(typ("IRType"))
+
+def tracek(T, idx):
+    ref = idx + REF_BIAS
+    ir = T['ir'][ref].address
+    slot = -1
+    if ir['o'] == IR_KSLOT:
+        slot = ir['op2']
+        ir = T['ir'][ir['op1']].address
+    val, it = lj_ir_kvalue(ir)
+    t = irt_type(ir['t'])
+    if slot == -1:
+        return (val, it, t, None)
+    return (val, it, t, slot)
+
+ffnames = [
+"Lua",
+"C",
+"assert",
+"type",
+"next",
+"pairs",
+"ipairs_aux",
+"ipairs",
+"getmetatable",
+"setmetatable",
+"getfenv",
+"setfenv",
+"rawget",
+"rawset",
+"rawequal",
+"unpack",
+"select",
+"tonumber",
+"tostring",
+"error",
+"pcall",
+"xpcall",
+"loadfile",
+"load",
+"loadstring",
+"dofile",
+"gcinfo",
+"collectgarbage",
+"newproxy",
+"print",
+"coroutine.status",
+"coroutine.running",
+"coroutine.create",
+"coroutine.yield",
+"coroutine.resume",
+"coroutine.wrap_aux",
+"coroutine.wrap",
+"math.abs",
+"math.floor",
+"math.ceil",
+"math.sqrt",
+"math.log10",
+"math.exp",
+"math.sin",
+"math.cos",
+"math.tan",
+"math.asin",
+"math.acos",
+"math.atan",
+"math.sinh",
+"math.cosh",
+"math.tanh",
+"math.frexp",
+"math.modf",
+"math.log",
+"math.atan2",
+"math.pow",
+"math.fmod",
+"math.ldexp",
+"math.min",
+"math.max",
+"math.random",
+"math.randomseed",
+"bit.tobit",
+"bit.bnot",
+"bit.bswap",
+"bit.lshift",
+"bit.rshift",
+"bit.arshift",
+"bit.rol",
+"bit.ror",
+"bit.band",
+"bit.bor",
+"bit.bxor",
+"bit.tohex",
+"string.byte",
+"string.char",
+"string.sub",
+"string.rep",
+"string.reverse",
+"string.lower",
+"string.upper",
+"string.dump",
+"string.find",
+"string.match",
+"string.gmatch_aux",
+"string.gmatch",
+"string.gsub",
+"string.format",
+"table.maxn",
+"table.insert",
+"table.concat",
+"table.sort",
+"table.new",
+"table.clear",
+"io.method.close",
+"io.method.read",
+"io.method.write",
+"io.method.flush",
+"io.method.seek",
+"io.method.setvbuf",
+"io.method.lines",
+"io.method.__gc",
+"io.method.__tostring",
+"io.open",
+"io.popen",
+"io.tmpfile",
+"io.close",
+"io.read",
+"io.write",
+"io.flush",
+"io.input",
+"io.output",
+"io.lines",
+"io.type",
+"os.execute",
+"os.remove",
+"os.rename",
+"os.tmpname",
+"os.getenv",
+"os.exit",
+"os.clock",
+"os.date",
+"os.time",
+"os.difftime",
+"os.setlocale",
+"debug.getregistry",
+"debug.getmetatable",
+"debug.setmetatable",
+"debug.getfenv",
+"debug.setfenv",
+"debug.getinfo",
+"debug.getlocal",
+"debug.setlocal",
+"debug.getupvalue",
+"debug.setupvalue",
+"debug.upvalueid",
+"debug.upvaluejoin",
+"debug.sethook",
+"debug.gethook",
+"debug.debug",
+"debug.traceback",
+"jit.on",
+"jit.off",
+"jit.flush",
+"jit.status",
+"jit.attach",
+"jit.util.funcinfo",
+"jit.util.funcbc",
+"jit.util.funck",
+"jit.util.funcuvname",
+"jit.util.traceinfo",
+"jit.util.traceir",
+"jit.util.tracek",
+"jit.util.tracesnap",
+"jit.util.tracemc",
+"jit.util.traceexitstub",
+"jit.util.ircalladdr",
+"jit.opt.start",
+"jit.profile.start",
+"jit.profile.stop",
+"jit.profile.dumpstack",
+"ffi.meta.__index",
+"ffi.meta.__newindex",
+"ffi.meta.__eq",
+"ffi.meta.__len",
+"ffi.meta.__lt",
+"ffi.meta.__le",
+"ffi.meta.__concat",
+"ffi.meta.__call",
+"ffi.meta.__add",
+"ffi.meta.__sub",
+"ffi.meta.__mul",
+"ffi.meta.__div",
+"ffi.meta.__mod",
+"ffi.meta.__pow",
+"ffi.meta.__unm",
+"ffi.meta.__tostring",
+"ffi.meta.__pairs",
+"ffi.meta.__ipairs",
+"ffi.clib.__index",
+"ffi.clib.__newindex",
+"ffi.clib.__gc",
+"ffi.callback.free",
+"ffi.callback.set",
+"ffi.cdef",
+"ffi.new",
+"ffi.cast",
+"ffi.typeof",
+"ffi.istype",
+"ffi.sizeof",
+"ffi.alignof",
+"ffi.offsetof",
+"ffi.errno",
+"ffi.string",
+"ffi.copy",
+"ffi.fill",
+"ffi.abi",
+"ffi.metatype",
+"ffi.gc",
+"ffi.load",
+]
+
+def fmtfunc(fn):
+    if isluafunc(fn):
+        pt = funcproto(fn)
+        line = debug_frameline(L, T, fn, pt, nextframe)
+        #print("line: %d\n" % line)
+        if line <= 0:
+            #print str(pt.dereference)
+            line = int(pt['firstline'])
+        name = proto_chunkname(pt)
+        if not name:
+            return ""
+        path = lstr2str(name)
+        return "%s:%d\n" % (path, line)
+
+    elif isffunc(fn):
+        return ffnames[int(fn['c']['ffid'])]
+
+    else:
+        cfunc = fn['c']['f']
+        key = str(cfunc)
+        if key in cfunc_cache:
+            sym = cfunc_cache[key]
+
+        else:
+            sym = "C:%s\n" % cfunc
+            m = re.search('<.*?(\w+)*.*?>', cfunc.__str__())
+            if m:
+                sym = "C:%s\n" % m.group(1)
+            else:
+                sym = "C:%s\n" % key
+        return sym
+
+def formatk(tr, idx):
+    #return "<k>"
+    k, it, t, slot = tracek(tr, idx)
+    #print("type: ", it)
+    if it == "number":
+        if k == 2 ** 52 + 2 ** 51:
+            s = "bias"
+        else:
+            s = "%+.14g" % k
+
+    elif it == "string":
+        k = lstr2str(k.cast(typ("GCstr*")))
+        if len(k) > 20:
+            s = '"%.20s"~' % k
+        else:
+            s = '"%s"' % k
+
+    elif it == "function":
+        s = fmtfunc(k.cast(typ("GCfunc*")))
+
+    elif it == "userdata":
+        if t == 12:
+            s = "userdata:%#x" % k
+        else:
+            s = "[%#x]" % k
+            if k == 0:
+                s = "[NULL]"
+    elif t == 21:  # int64_t
+        s = str(k)
+        if s[0] != "-":
+            s = "+" + s
+    else:
+        s = str(k)
+
+    if slot:
+        s = "%s @%d" % (s, slot)
+
+    return s or "<k>"
+
+class lir(gdb.Command):
+    """This command prints out all the IR code for the trace specified by its number.
+Usage: lir"""
+
+    def __init__ (self):
+        super (lir, self).__init__("lir", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: lir trace-no")
+
+        traceno = int(argv[0])
+        L = get_global_L()
+
+        if traceno < 0:
+            raise gdb.GdbError("bad trace number")
+
+        g = G(L)
+        J = G2J(g)
+        T = traceref(J, traceno)
+        out("(GCtrace*)0x%x\n" % ptr2int(T))
+        if T:
+            lj_ir_mode, _ = gdb.lookup_symbol("lj_ir_mode")
+            if not lj_ir_mode:
+                raise gdb.GdbError("symbol lj_ir_mode not found")
+            lj_ir_mode = lj_ir_mode.value()
+
+            instnum = int(T['nins'].cast(typ("int32_t")) - REF_BIAS - 1)
+            out("IR count: %d\n" % instnum)
+
+            for ins in range(1, instnum + 1):
+                ref = ins + REF_BIAS
+                ir = T['ir'][ref].address
+
+                #out("inst ptr: %#x," % ptr2int(ir))
+
+                m = lj_ir_mode[ir['o']]
+                ot = ir['ot']
+                ofs = 0
+                op1 = ir['op1'].cast(typ("int32_t")) - (irm_op1(m) == IRMref and REF_BIAS or 0)
+                op2 = ir['op2'].cast(typ("int32_t")) - (irm_op2(m) == IRMref and REF_BIAS or 0)
+                ridsp = ir['prev']
+
+                oidx = int(6 * (ot >> 8))
+                t = int(ot & 31)
+                op = irnames[oidx + 1 - 1: oidx + 6]
+                #print("op: [%s]\n" % op)
+
+                if op == "LOOP  ":
+                    out("%04d ------------ LOOP ------------" % ins)
+                elif op != "NOP   " and op != "CARG  ":
+                    rid = (ridsp & 255)
+                    out("%04d %-6s" % (ins, ridsp_name(ridsp, ins)))
+                    out("%s%s %s %s " % ((rid == 254 or rid == 253) and "}" or \
+                            ((ot & 128) == 0 and " " or ">"),
+                            (ot & 64) == 0 and " " or "+",
+                            irtype[t], op))
+                    m1 = (m & 3)
+                    m2 = (m & 3*4)
+                    if op[0:3] == "CALL":
+                        if m2 == 1*4: # op2 == IRMlit
+                            out("%-10s  (", ircall[op2])
+                        else:
+                            ctype = dumpcallfunc(T, op2)
+                        if op1 != -1:
+                            dumpcallargs(T, op1)
+                        out(")")
+                        if ctype:
+                            out(" ctype ", ctype)
+                    elif op == "CNEW  " and op2 == -1:
+                        out(formatk(T, op1))
+                    elif m1 != 3:  # op1 != IRMnone
+                        if op1 < 0:
+                            out(formatk(T, op1))
+                        else:
+                            if m1 == 0:
+                                out("%04d" % op1)
+                            else:
+                                out("#%-3d" % op1)
+                        if m2 != 3*4:  # op2 != IRMnone
+                            if m2 == 1*4:  # op2 == IRMlit
+                                litn = litname(op)
+                                if litn and litn(op2):
+                                    out("  " + litn(op2))
+                                elif op == "UREFO " or op == "UREFC ":
+                                    out("  #%-3d" % op2 >> 8)
+                                else:
+                                    out("  #%-3d" % op2)
+                            elif op2 < 0:
+                                out("  " + formatk(T, op2))
+                            else:
+                                out("  %04d" % op2)
+
+                #op1 = int(inst['op1'])
+                #op2 = int(inst['op2'])
+                #out(" %#x, %#x" % (op1, op2))
+                #if name[0:4] == "CALL" :
+                    #out(" (%s)" % ircall[op2])
+                    #if (op2 & 3) == 4:
+                out("\n")
+
+lir()
+
