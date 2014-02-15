@@ -1515,6 +1515,9 @@ IR_KGC = 24
 IR_KPTR = 25
 IR_KKPTR = 26
 IR_KNULL = 27
+IR_KNUM = 28
+IR_KINT64 = 29
+IR_KSLOT = 30
 
 def irt_toitype_(t):
     if t > IRT_NUM:
