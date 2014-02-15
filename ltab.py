@@ -1,5 +1,9 @@
 import gdb
 import re
+import gdbutils
+
+out = gdbutils.out
+
 class ltab(gdb.Command):
     """This command dumps out the all the elems in the lua table specified.
 Usage: ltab addr [nil] [r]"""
@@ -55,7 +59,7 @@ Usage: ltab addr [nil] [r]"""
             str_res = val['gcr']['gcptr32'].cast(self.GCObj_pointer_type)['str']
             str_pointer = str_res.address
             src = str_pointer.cast(self.GCstr_pointer_type) + 1
-            src = src.cast(self.char_pointer_type).string()
+            src = src.cast(self.char_pointer_type).string('iso-8859-6', 'ignore')
             return "\"%s\"" % src
 
         elif val['it'] == self.LJ_TUPVAL:
@@ -124,7 +128,7 @@ Usage: ltab addr [nil] [r]"""
                 if node[i]['val']['it'] != self.LJ_TNIL:
                     key_str = self.lvalue(node[i]['key'], depth, print_nil, recursive_print)
                     val_str = self.lvalue(node[i]['val'], depth, print_nil, recursive_print)
-                    sys.stdout.write("[%s]=%s, " % (key_str, val_str))
+                    out("[%s]=%s, " % (key_str, val_str))
 
         if narray == 0 and nhmask == 0:
             sys.stdout.write("}")
