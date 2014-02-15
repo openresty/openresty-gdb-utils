@@ -1176,11 +1176,12 @@ Usage: ltrace"""
         traceno = int(argv[0])
         L = get_global_L()
 
-        if traceno < 0:
-            raise gdb.GdbError("bad trace number")
-
         g = G(L)
         J = G2J(g)
+
+        if traceno < 0 or traceno > J['sizetrace']:
+            raise gdb.GdbError("bad trace number: %d" % traceno)
+
         T = traceref(J, traceno)
         out("(GCtrace*)0x%x\n" % ptr2int(T))
         if T:
@@ -1783,11 +1784,7 @@ ffnames = [
 def fmtfunc(fn):
     if isluafunc(fn):
         pt = funcproto(fn)
-        line = debug_frameline(L, T, fn, pt, nextframe)
-        #print("line: %d\n" % line)
-        if line <= 0:
-            #print str(pt.dereference)
-            line = int(pt['firstline'])
+        line = int(pt['firstline'])
         name = proto_chunkname(pt)
         if not name:
             return ""
@@ -1867,11 +1864,12 @@ Usage: lir"""
         traceno = int(argv[0])
         L = get_global_L()
 
-        if traceno < 0:
-            raise gdb.GdbError("bad trace number")
-
         g = G(L)
         J = G2J(g)
+
+        if traceno < 0 or traceno > J['sizetrace']:
+            raise gdb.GdbError("bad trace number: %d" % traceno)
+
         T = traceref(J, traceno)
         out("(GCtrace*)0x%x\n" % ptr2int(T))
         if T:
