@@ -1792,7 +1792,14 @@ def fmtfunc(fn):
         if not name:
             return ""
         path = lstr2str(name)
-        return "%s:%d\n" % (path, line)
+        if path[0] == '@':
+            i = len(path) - 1
+            while i > 0:
+                if path[i] == '/' or path[i] == '\\':
+                    path = path[i+1:]
+                    break
+                i -= 1
+        return "%s:%d" % (path, line)
 
     elif isffunc(fn):
         return ffnames[int(fn['c']['ffid'])]
@@ -1804,22 +1811,24 @@ def fmtfunc(fn):
             sym = cfunc_cache[key]
 
         else:
-            sym = "C:%s\n" % cfunc
+            sym = "C:%s" % cfunc
             m = re.search('<.*?(\w+)*.*?>', cfunc.__str__())
             if m:
-                sym = "C:%s\n" % m.group(1)
+                sym = "C:%s" % m.group(1)
             else:
-                sym = "C:%s\n" % key
+                sym = "C:%s" % key
         return sym
 
 def formatk(tr, idx):
     #return "<k>"
     k, it, t, slot = tracek(tr, idx)
     #print("type: ", it)
+    s = None
     if it == "number":
         if k == 2 ** 52 + 2 ** 51:
             s = "bias"
         else:
+            #print("BEFORE")
             s = "%+.14g" % k
 
     elif it == "string":
@@ -1836,7 +1845,7 @@ def formatk(tr, idx):
         if t == 12:
             s = "userdata:%#x" % k
         else:
-            s = "[%#x]" % k
+            s = "[%#010x]" % k
             if k == 0:
                 s = "[NULL]"
     elif t == 21:  # int64_t
@@ -1846,10 +1855,76 @@ def formatk(tr, idx):
     else:
         s = str(k)
 
+    s = "%-4s" % s
     if slot:
         s = "%s @%d" % (s, slot)
 
     return s or "<k>"
+
+def SNAP(slot, flags, ref):
+    return (newval("SnapEntry", slot) << 24) + flags + ref
+
+def tracesnap(T, sn):
+    if T and sn < T['nsnap']:
+        snap = T['snap'][sn].address
+        map = T['snapmap'][snap['mapofs']].address
+        nent = snap['nent']
+        size = nent + 2
+        t = []
+        int32_t = typ("int32_t")
+        t.append(snap['ref'].cast(int32_t) - REF_BIAS)
+        t.append(snap['nslots'].cast(int32_t))
+        n = 0
+        while n < nent:
+            t.append(map[n].cast(int32_t))
+            n += 1
+        t.append(SNAP(255, 0, 0).cast(int32_t))
+        return t
+    return None
+
+lj_ir_mode = None
+
+def get_ir_mode():
+    global lj_ir_mode
+    if not lj_ir_mode:
+        lj_ir_mode, _ = gdb.lookup_symbol("lj_ir_mode")
+        if not lj_ir_mode:
+            raise gdb.GdbError("symbol lj_ir_mode not found")
+        lj_ir_mode = lj_ir_mode.value()
+    return lj_ir_mode
+
+def traceir(T, ins):
+    ir_mode = get_ir_mode()
+
+    ref = ins + REF_BIAS
+    ir = T['ir'][ref].address
+    m = ir_mode[ir['o']]
+    ot = ir['ot']
+    ofs = 0
+    op1 = ir['op1'].cast(typ("int32_t")) - (irm_op1(m) == IRMref and REF_BIAS or 0)
+    op2 = ir['op2'].cast(typ("int32_t")) - (irm_op2(m) == IRMref and REF_BIAS or 0)
+    ridsp = ir['prev']
+    return m, ot, op1, op2, ridsp
+
+def printsnap(T, snap):
+    n = 2
+    s = 0
+    while s <= snap[1] - 1:
+        sn = snap[n]
+        if (sn >> 24) == s:
+            n += 1
+            ref = (sn & 0xffff) - REF_BIAS
+            if ref < 0:
+                out(formatk(T, ref))
+            elif (sn & 0x80000) != 0:  # SNAP_SOFTFPNUM
+                out("%04d/%04d" % (ref, ref+1))
+            else:
+                out("%04d" % ref)
+            out((sn & 0x10000) == 0 and " " or "|") # SNAP_FRAME
+        else:
+            out("---- ")
+        s += 1
+    out("]\n")
 
 class lir(gdb.Command):
     """This command prints out all the IR code for the trace specified by its number.
@@ -1874,28 +1949,30 @@ Usage: lir"""
             raise gdb.GdbError("bad trace number: %d" % traceno)
 
         T = traceref(J, traceno)
-        out("(GCtrace*)0x%x\n" % ptr2int(T))
         if T:
-            lj_ir_mode, _ = gdb.lookup_symbol("lj_ir_mode")
-            if not lj_ir_mode:
-                raise gdb.GdbError("symbol lj_ir_mode not found")
-            lj_ir_mode = lj_ir_mode.value()
+            out("(GCtrace*)0x%x\n" % ptr2int(T))
 
             instnum = int(T['nins'].cast(typ("int32_t")) - REF_BIAS - 1)
-            out("IR count: %d\n" % instnum)
+            out("IR count: %d\n\n" % instnum)
+
+            out("---- TRACE %d IR\n" % traceno)
+
+            snap = tracesnap(T, 0)
+            snapref = snap[0]
+            snapno = 0
 
             for ins in range(1, instnum + 1):
-                ref = ins + REF_BIAS
-                ir = T['ir'][ref].address
 
                 #out("inst ptr: %#x," % ptr2int(ir))
 
-                m = lj_ir_mode[ir['o']]
-                ot = ir['ot']
-                ofs = 0
-                op1 = ir['op1'].cast(typ("int32_t")) - (irm_op1(m) == IRMref and REF_BIAS or 0)
-                op2 = ir['op2'].cast(typ("int32_t")) - (irm_op2(m) == IRMref and REF_BIAS or 0)
-                ridsp = ir['prev']
+                if ins >= snapref:
+                    out("....              SNAP   #%-3d [ " % snapno)
+                    printsnap(T, snap)
+                    snapno += 1
+                    snap = tracesnap(T, snapno)
+                    snapref = (snap and snap[0] or 65536)
+
+                m, ot, op1, op2, ridsp = traceir(T, ins)
 
                 oidx = int(6 * (ot >> 8))
                 t = int(ot & 31)
@@ -1927,6 +2004,7 @@ Usage: lir"""
                         out(formatk(T, op1))
                     elif m1 != 3:  # op1 != IRMnone
                         if op1 < 0:
+                            #print("HERE op1 < 0")
                             out(formatk(T, op1))
                         else:
                             if m1 == 0:
@@ -1943,6 +2021,7 @@ Usage: lir"""
                                 else:
                                     out("  #%-3d" % op2)
                             elif op2 < 0:
+                                #print("HERE op2 < 0")
                                 out("  " + formatk(T, op2))
                             else:
                                 out("  %04d" % op2)
@@ -1954,6 +2033,10 @@ Usage: lir"""
                     #out(" (%s)" % ircall[op2])
                     #if (op2 & 3) == 4:
                 out("\n")
+
+            if snap:
+                out("....              SNAP   #%-3d [ " % snapno)
+                printsnap(T, snap)
 
 lir()
 
