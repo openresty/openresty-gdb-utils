@@ -1483,6 +1483,14 @@ irfpm = ["floor", "ceil", "trunc", "sqrt", "exp", "exp2", "log", "log2", "log10"
 def litname_FPMATH(mode):
     return irfpm[int(mode)]
 
+def litname_BUFHDR(mode):
+    a = ["RESET", "APPEND"]
+    return a[int(mode)]
+
+def litname_TOSTR(mode):
+    a = ["INT", "NUM", "CHAR"]
+    return a[int(mode)]
+
 def litname(op):
     if op == "SLOAD ":
         return litname_SLOAD
@@ -1537,6 +1545,9 @@ def ir_kgc(ir):
 def ir_knum(ir):
     return mref(ir['ptr'], "TValue")
 
+def ir_kint64(ir):
+    return mref(ir['ptr'], 'TValue')
+
 def lj_ir_kvalue(ir):
     t = ir['o']
     if t == IR_KPRI:
@@ -1559,7 +1570,10 @@ def lj_ir_kvalue(ir):
     if t == IR_KNUM:
         return float(ir_knum(ir)['n']), "number"
 
-    return None, "unknown"
+    if t == IR_KINT64:
+        return int(ir_kint64(ir)['u64']), "cdata"
+
+    return "unknown", "unknown"
 
 IRT_TYPE = 0x1f
 IRT_NUM = 14
@@ -1834,9 +1848,9 @@ def formatk(tr, idx):
     elif it == "string":
         k = lstr2str(k.cast(typ("GCstr*")))
         if len(k) > 20:
-            s = '"%.20s"~' % k
+            s = '"%.20s"~' % re.escape(k)
         else:
-            s = '"%s"' % k
+            s = '"%s"' % re.escape(k)
 
     elif it == "function":
         s = fmtfunc(k.cast(typ("GCfunc*")))
@@ -2017,12 +2031,12 @@ Usage: lir"""
                                 if litn and litn(op2):
                                     out("  " + litn(op2))
                                 elif op == "UREFO " or op == "UREFC ":
-                                    out("  #%-3d" % op2 >> 8)
+                                    out("  #%-3d" % (op2 >> 8))
                                 else:
                                     out("  #%-3d" % op2)
                             elif op2 < 0:
                                 #print("HERE op2 < 0")
-                                out("  " + formatk(T, op2))
+                                out("  %s" % formatk(T, op2))
                             else:
                                 out("  %04d" % op2)
 
@@ -2032,7 +2046,7 @@ Usage: lir"""
                 #if name[0:4] == "CALL" :
                     #out(" (%s)" % ircall[op2])
                     #if (op2 & 3) == 4:
-                out("\n")
+                    out("\n")
 
             if snap:
                 out("....              SNAP   #%-3d [ " % snapno)
