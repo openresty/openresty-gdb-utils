@@ -1969,6 +1969,30 @@ Usage: lir"""
             instnum = int(T['nins'].cast(typ("int32_t")) - REF_BIAS - 1)
             out("IR count: %d\n\n" % instnum)
 
+            pt = gcref(T['startpt'])['pt'].address
+            pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+            line = lj_debug_line(pt, pc)
+            name = proto_chunkname(pt)
+            if name:
+                path = lstr2str(name)
+                if path[0] == '@':
+                    i = len(path) - 1
+                    while i > 0:
+                        if path[i] == '/' or path[i] == '\\':
+                            path = path[i+1:]
+                            break
+                        i -= 1
+                loc = "%s:%d" % (path, line)
+            else:
+                loc = "unknown"
+
+            root = T['root']
+
+            if root != 0:
+                out("---- TRACE %d start %d/? %s\n" % (traceno, root, loc))
+            else:
+                out("---- TRACE %d start %s\n" % (traceno, loc))
+
             out("---- TRACE %d IR\n" % traceno)
 
             snap = tracesnap(T, 0)
