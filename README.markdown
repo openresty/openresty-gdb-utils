@@ -105,11 +105,13 @@ lbt
 ---
 **syntax:** *lbt*
 
-**syntax:** *lbt &lt;L&gt;*
+**syntax:** *lbt [L]*
+
+**syntax:** *lbt full [L]*
 
 **file** *luajit21.py*
 
-Fetch the current backtrace from the current running Lua thread(when no argument is given) or the Lua thread specified by the lua_State pointer.
+Fetch the current backtrace from the current running Lua thread (when no `L` argument is given) or the Lua thread specified by the `lua_State` pointer.
 
 The backtrace format is the same as the one used by the [lj-lua-bt](https://github.com/agentzh/stapxx#lj-lua-bt) tool.
 
@@ -128,6 +130,39 @@ Below is an example:
 You can also explicitly specify the Lua thread state you want to analyze, for instance,
 
     (gdb) lbt 0x169e0e0
+
+The `lbt full` command works like `bt full`, which dumps out the names and values of all the local variables (including function parameters) in every Lua function frame. For example,
+
+```text
+(gdb) lbt full
+C:ngx_http_lua_socket_tcp_receive
+@/home/agentzh/git/lua-resty-mysql/lib/resty/mysql.lua:191
+    local "self":
+        table (0x40f181a8)
+    local "sock":
+        table (0x40f181b0)
+@/home/agentzh/git/lua-resty-mysql/lib/resty/mysql.lua:530
+    local "self":
+        table (0x40f18148)
+    local "opts":
+        table (0x40f18150)
+    local "sock":
+        table (0x40f18158)
+    local "max_packet_size":
+        int 1048576
+    local "ok":
+        int 1
+    local "err":
+        nil
+    local "database":
+        string: "world" (len 5)
+    local "user":
+        string: "ngx_test" (len 8)
+    local "pool":
+        string: "ngx_test:world:127.0.0.1:3306" (len 29)
+    local "host":
+        string: "127.0.0.1" (len 9)
+```
 
 Only LuaJIT 2.1 is supported.
 
