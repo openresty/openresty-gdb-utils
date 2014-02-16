@@ -2050,7 +2050,7 @@ Usage: lir"""
                         if m2 == 1*4: # op2 == IRMlit
                             out("%-10s  (" % ircall[int(op2)])
                         else:
-                            ctype = dumpcallfunc(T, op2)
+                            ctype = dumpcallfunc(T, op2)  # TODO
                         if op1 != -1:
                             dumpcallargs(T, op1)
                         out(")")
