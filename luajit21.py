@@ -848,7 +848,7 @@ def dump_table(t):
     for i in xrange(narr):
         v = arr[i]
         if not tvisnil(v):
-            out("\t[%d] = \n" % i)
+            out("\t[%d] =\n" % i)
             dump_tvalue(v)
 
     node = noderef(t['node'])

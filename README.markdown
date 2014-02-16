@@ -13,6 +13,7 @@ Table of Contents
 * [Commands](#commands)
     * [lbt](#lbt)
     * [lvmst](#lvmst)
+    * [lval](#lval)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -190,6 +191,55 @@ The following VM states are supported:
 * Trace recorder
 * Optimizer
 * Assembler
+
+[Back to TOC](#table-of-contents)
+
+lval
+-----
+**syntax:** *lval tv*
+
+**file** *luajit21.py*
+
+Prints out the content in a `TValue` or the dereferenced value (like `GCtab` and `GCproto`) from its pointer. By default the argument is assumed to be a `TValue*` pointer value.
+
+Below are some examples:
+
+```text
+(gdb) lval (TValue*)0x41f1f450
+table (GCtab*)0x41f1f688 (narr=5, nrec=1):
+    [1] =
+        int 32
+    [2] =
+        true
+    [4] =
+        string: "hello" (len 5)
+    key:
+        string: "dog" (len 3)
+    value:
+        number 21.5
+
+(gdb) lval (GCtab*)0x41f1f688
+table (GCtab*)0x41f1f688 (narr=5, nrec=1):
+    [1] =
+        int 32
+    [2] =
+        true
+    [4] =
+        string: "hello" (len 5)
+    key:
+        string: "dog" (len 3)
+    value:
+        number 21.5
+
+(gdb) lval 0x41f1f440
+        nil
+
+(gdb) lval 0x41f1f458
+        Lua function (GCfunc*)0x4188e018 at @.../regex.lua:418
+
+(gdb) lval 0x41f1f460
+        int 1
+```
 
 [Back to TOC](#table-of-contents)
 
