@@ -196,7 +196,9 @@ The following VM states are supported:
 
 lval
 -----
-**syntax:** *lval tv*
+**syntax:** *lval tvalue*
+
+**syntax:** *lval gcobj*
 
 **file** *luajit21.py*
 
