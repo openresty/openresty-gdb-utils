@@ -1940,6 +1940,22 @@ def printsnap(T, snap):
         s += 1
     out("]\n")
 
+def dumpcallargs(T, ins):
+    if ins < 0:
+        out(formatk(T, ins))
+    else:
+        m, ot, op1, op2, ridsp = traceir(T, ins)
+        oidx = 6 * (ot >> 8)
+        op = irnames[int(oidx+1-1):int(oidx+6)]
+        if op == "CARG  ":
+            dumpcallargs(T, op1)
+            if op2 < 0:
+                out(" %s" % formatk(T, op2))
+            else:
+                out(" %04d" % op2)
+        else:
+            out("%04d" % ins)
+
 class lir(gdb.Command):
     """This command prints out all the IR code for the trace specified by its number.
 Usage: lir"""
@@ -2027,10 +2043,11 @@ Usage: lir"""
                             (ot & 64) == 0 and " " or "+",
                             irtype[t], op))
                     m1 = (m & 3)
-                    m2 = (m & 3*4)
-                    if op[0:3] == "CALL":
+                    m2 = (m & (3*4))
+                    if op[0:4] == "CALL":
+                        ctype = None
                         if m2 == 1*4: # op2 == IRMlit
-                            out("%-10s  (", ircall[op2])
+                            out("%-10s  (" % ircall[int(op2)])
                         else:
                             ctype = dumpcallfunc(T, op2)
                         if op1 != -1:
