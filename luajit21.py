@@ -721,7 +721,7 @@ Usage: ltabgets tab field"""
 
 ltabgets()
 
-def ltype(tv, t):
+def ltype(tv, t=None):
     if not t:
         t = tv['it']
 
