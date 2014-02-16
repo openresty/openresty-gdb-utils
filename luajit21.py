@@ -2035,7 +2035,7 @@ Usage: lir"""
                 #print("op: [%s]\n" % op)
 
                 if op == "LOOP  ":
-                    out("%04d ------------ LOOP ------------" % ins)
+                    out("%04d ------------ LOOP ------------\n" % ins)
                 elif op != "NOP   " and op != "CARG  ":
                     rid = (ridsp & 255)
                     out("%04d %-6s" % (ins, ridsp_name(ridsp, ins)))
