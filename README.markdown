@@ -14,6 +14,7 @@ Table of Contents
     * [lbt](#lbt)
     * [lvmst](#lvmst)
     * [lval](#lval)
+    * [ltrace](#ltrace)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -241,6 +242,44 @@ table (GCtab*)0x41f1f688 (narr=5, nrec=1):
 
 (gdb) lval 0x41f1f460
         int 1
+```
+
+[Back to TOC](#table-of-contents)
+
+ltrace
+------
+**syntax:** *ltrace traceno*
+
+**file** *luajit21.py*
+
+Dump the contents in a LuaJIT trace object specified by the trace number (starting from 1).
+
+For example,
+
+```text
+(gdb) ltrace 658
+(GCtrace*)0x40800268
+machine code size: 335
+machine code start addr: 0x7f2435c85870
+machine code end addr: 0x7f2435c859bf
+@.../lua/waf-core.lua:1202
+```
+
+The starting address and end address of the machine code region in the output can be used to obtain the machine code dump for the trace:
+
+```text
+(gdb) disas 0x7f2435c85870, 0x7f2435c859bf
+Dump of assembler code from 0x7f2435c85870 to 0x7f2435c859bf:
+   0x00007f2435c85870:  mov    DWORD PTR ds:0x40ff1410,0x292
+   0x00007f2435c8587b:  cmp    DWORD PTR [rdx-0x8],0x419746c8
+   0x00007f2435c85882:  jne    0x7f2435cd0010
+   0x00007f2435c85888:  cmp    DWORD PTR [rdx+0x4],0xfffffffb
+   0x00007f2435c8588c:  jne    0x7f2435cd0010
+   0x00007f2435c85892:  mov    ebp,DWORD PTR [rdx]
+   ...
+   0x00007f2435c859b4:  mov    r14d,0x40ff1f90
+   0x00007f2435c859ba:  jmp    0x7f2444a899fa <lj_vm_exit_interp>
+End of assembler dump.
 ```
 
 [Back to TOC](#table-of-contents)

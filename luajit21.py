@@ -1228,9 +1228,9 @@ Usage: ltrace"""
         out("(GCtrace*)0x%x\n" % ptr2int(T))
         if T:
             szmcode = int(T['szmcode'])
-            out("mcode size: %d\n" % szmcode)
-            out("mcode start addr: 0x%x\n" % ptr2int(T['mcode']))
-            out("mcode end addr: 0x%x\n" % (ptr2int(T['mcode']) + szmcode))
+            out("machine code size: %d\n" % szmcode)
+            out("machine code start addr: 0x%x\n" % ptr2int(T['mcode']))
+            out("machine code end addr: 0x%x\n" % (ptr2int(T['mcode']) + szmcode))
             pt = gcref(T['startpt'])['pt'].address
             pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
             line = lj_debug_line(pt, pc)
