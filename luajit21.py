@@ -1847,7 +1847,15 @@ def formatk(tr, idx):
 
     elif it == "string":
         k = lstr2str(k.cast(typ("GCstr*")))
-        k = re.escape(k).replace("\\_", "_")
+        k = re.escape(k).replace("\\_", "_") \
+                .replace("\\[", "[") \
+                .replace("\\:", ":") \
+                .replace("\\ ", " ") \
+                .replace("\\]", "]") \
+                .replace("\\+", "+") \
+                .replace("\\*", "*") \
+                .replace("\\?", "?") \
+                .replace("\\\\", "\\")
         if len(k) > 20:
             s = '"%.20s"~' % k
         else:
@@ -1957,6 +1965,20 @@ def dumpcallargs(T, ins):
         else:
             out("%04d" % ins)
 
+def dumpcallfunc(T, ins):
+    ctype = None
+    if ins > 0:
+        m, ot, op1, op2, ridsp = traceir(T, ins)
+        if (ot & 31) == 0:
+            ins = op1
+            ctype = formatk(T, op2)
+    if ins < 0:
+        k, it, t, slot = tracek(T, ins)
+        out("[0x%x](" % k)
+    else:
+        out("%04d (" % ins)
+    return ctype
+
 class lir(gdb.Command):
     """This command prints out all the IR code for the trace specified by its number.
 Usage: lir"""
@@ -2050,7 +2072,7 @@ Usage: lir"""
                         if m2 == 1*4: # op2 == IRMlit
                             out("%-10s  (" % ircall[int(op2)])
                         else:
-                            ctype = dumpcallfunc(T, op2)  # TODO
+                            ctype = dumpcallfunc(T, op2)
                         if op1 != -1:
                             dumpcallargs(T, op1)
                         out(")")
