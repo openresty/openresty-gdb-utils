@@ -837,7 +837,32 @@ def tvislightud(o):
 def intV(o):
     return o['i'].cast(typ("int32_t"))
 
-def dump_tvalue(o):
+def noderef(r):
+    return mref(r, "Node")
+
+def dump_table(t):
+    narr = t['asize']
+    nhmask = t['hmask']
+    out("table (GCtab*)%#x (narr=%d, nrec=%d):\n" % (ptr2int(t), narr, nhmask))
+    arr = tvref(t['array'])
+    for i in xrange(narr):
+        v = arr[i]
+        if not tvisnil(v):
+            out("\t[%d] = \n" % i)
+            dump_tvalue(v)
+
+    node = noderef(t['node'])
+    for i in xrange(nhmask+1):
+        nn = node[i]
+        k = nn['key']
+        v = nn['val']
+        if not tvisnil(k) and not tvisnil(v):
+            out("\tkey:\n")
+            dump_tvalue(k)
+            out("\tvalue:\n")
+            dump_tvalue(v)
+
+def dump_tvalue(o, deep=False):
     if tvisudata(o):
         ud = udataV(o)
         t = ud['udtype']
@@ -884,7 +909,7 @@ def dump_tvalue(o):
         out("\t\tint %d\n" % int(intV(o)))
 
     elif tvisnumber(o):
-        out("\t\tnumber\n")
+        out("\t\tnumber %.14g\n" % float(o['n']))
 
     elif tvisnil(o):
         out("\t\tnil\n")
@@ -915,6 +940,9 @@ def dump_tvalue(o):
                     out("ERROR: failed to resolve chunk name: %s\n" % e)
 
         out("\t\tfunction (0x%x)\n" % ptr2int(o))
+
+    elif deep and tvistab(o):
+        dump_table(tabV(o))
 
     else:
         out("\t\t%s (0x%x)\n" % (ltype(o), ptr2int(o)))
@@ -956,11 +984,15 @@ Usage: lval tv"""
                 out("proto definition: %s:%d\n" % (path, int(o['firstline'])))
             return
 
+        if typstr == "GCtab *":
+            dump_table(o)
+            return
+
         m = re.search(r'TValue', typstr)
         if not m:
             raise gdb.GdbError("TValue * expected, but got %s" % typstr)
 
-        dump_tvalue(o)
+        dump_tvalue(o, True)
 
 lval()
 
@@ -1104,6 +1136,9 @@ Usage: luv fn"""
         dump_upvalues(fn, pt)
 
 luv()
+
+def tvistab(o):
+    return itype(o) == LJ_TTAB()
 
 def tvisthread(o):
     return itype(o) == LJ_TTHREAD()
