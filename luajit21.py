@@ -1425,7 +1425,7 @@ def ridsp_name(ridsp, ins):
     if rid == 253 or rid == 254:
         if slot == 0 or slot == 255:
             return " {sink"
-        return "{%04d" % (ins - slot)
+        return " {%04d" % (ins - slot)
     if ridsp > 255:
         return "[%x]" % (slot * 4)
     if rid < 128:
@@ -1847,10 +1847,11 @@ def formatk(tr, idx):
 
     elif it == "string":
         k = lstr2str(k.cast(typ("GCstr*")))
+        k = re.escape(k).replace("\\_", "_")
         if len(k) > 20:
-            s = '"%.20s"~' % re.escape(k)
+            s = '"%.20s"~' % k
         else:
-            s = '"%s"' % re.escape(k)
+            s = '"%s"' % k
 
     elif it == "function":
         s = fmtfunc(k.cast(typ("GCfunc*")))
