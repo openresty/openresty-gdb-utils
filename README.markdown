@@ -103,8 +103,6 @@ The following gdb commands are supported:
 
 lbt
 ---
-**syntax:** *lbt*
-
 **syntax:** *lbt [L]*
 
 **syntax:** *lbt full [L]*
@@ -170,9 +168,7 @@ Only LuaJIT 2.1 is supported.
 
 lvmst
 -----
-**syntax:** *lvmst*
-
-**syntax:** *lvmst &lt;L&gt;*
+**syntax:** *lvmst [L]*
 
 **file** *luajit21.py*
 
@@ -190,6 +186,18 @@ You can also explicitly specify the lua VM state you want to analyze, for instan
     current VM state: C code from intperpreted Lua
 
 You can specify any Lua thread's state in the VM you want to analyze.
+
+The following VM states are supported:
+
+* Compiled Lua code (trace #N)
+* Interpreted
+* C code (from interpreted Lua code)
+* Garbage collector (from interpreter)
+* Garbage collector (from compiled Lua code)
+* Trace exit handler
+* Trace recorder
+* Optimizer
+* Assembler
 
 [Back to TOC](#table-of-contents)
 

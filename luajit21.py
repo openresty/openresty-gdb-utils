@@ -82,7 +82,7 @@ LJ_VMST_OPT = 5
 LJ_VMST_ASM = 6
 LJ_VMST__MAX = 7
 
-vmstates = ['Interpreted', 'C code from intperpreted Lua', \
+vmstates = ['Interpreted', 'C code (from interpreted Lua code)', \
         'Garbage collector', 'Trace exit handler', \
         'Trace recorder', 'Optimizer', 'Assembler']
 
@@ -554,10 +554,17 @@ Usage: lvmst [L]"""
 
         vmstate = int(g['vmstate'])
         if vmstate >= 0:
-            out("Compiled (trace #%d)\n" % vmstate)
+            out("Compiled Lua code (trace #%d)\n" % vmstate)
 
         elif ~vmstate >= LJ_VMST__MAX:
             raise gdb.GdbError("Invalid VM state: ", ~vmstate)
+
+        elif ~vmstate == LJ_VMST_GC:
+            out("current VM state: Garbage collector (")
+            if tvref(g['jit_base']):
+                out("from compiled Lua code)\n")
+            else:
+                out("from interpreter)\n")
 
         else:
             #print "vmstate = %d" % vmstate
