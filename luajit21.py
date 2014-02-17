@@ -1202,9 +1202,22 @@ Usage: lg [L]"""
 
 lg()
 
+def trace_findfree(J):
+    freetrace = 1
+    sizetrace = int(J['sizetrace'])
+    if sizetrace <= 0:
+        return None
+
+    while freetrace < sizetrace:
+        if not traceref(J, freetrace):
+            return freetrace
+        freetrace += 1
+
+    return freetrace
+
 class ltrace(gdb.Command):
     """This command prints out all the upvalues in the GCfunc* pointer specified.
-Usage: ltrace"""
+Usage: ltrace [traceno]"""
 
     def __init__ (self):
         super (ltrace, self).__init__("ltrace", gdb.COMMAND_USER)
@@ -1212,32 +1225,48 @@ Usage: ltrace"""
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
 
-        if len(argv) != 1:
-            raise gdb.GdbError("usage: ltrace trace-no")
+        if len(argv) != 1 and len(argv) != 0:
+            raise gdb.GdbError("usage: ltrace [traceno]")
 
-        traceno = int(argv[0])
+        traceno = None
+
+        if len(argv) >= 1:
+            traceno = int(argv[0])
+
         L = get_global_L()
 
         g = G(L)
         J = G2J(g)
 
-        if traceno < 0 or traceno > J['sizetrace']:
-            raise gdb.GdbError("bad trace number: %d" % traceno)
+        freetrace = trace_findfree(J)
+        if not freetrace:
+            raise gdb.GdbError("No trace found")
+
+        ntraces = freetrace - 1
+        out("Found %d traces.\n" % ntraces)
+
+        if not traceno:
+            return
+
+        if traceno < 0 or traceno >= freetrace:
+            raise gdb.GdbError("trace number out of range: %d" % traceno)
 
         T = traceref(J, traceno)
         out("(GCtrace*)0x%x\n" % ptr2int(T))
-        if T:
-            szmcode = int(T['szmcode'])
-            out("machine code size: %d\n" % szmcode)
-            out("machine code start addr: 0x%x\n" % ptr2int(T['mcode']))
-            out("machine code end addr: 0x%x\n" % (ptr2int(T['mcode']) + szmcode))
-            pt = gcref(T['startpt'])['pt'].address
-            pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
-            line = lj_debug_line(pt, pc)
-            name = proto_chunkname(pt)
-            if name:
-                path = lstr2str(name)
-                out("%s:%d\n" % (path, line))
+        if not T:
+            raise gdb.GdbError("trace %d not valid" % traceno)
+
+        szmcode = int(T['szmcode'])
+        out("machine code size: %d\n" % szmcode)
+        out("machine code start addr: 0x%x\n" % ptr2int(T['mcode']))
+        out("machine code end addr: 0x%x\n" % (ptr2int(T['mcode']) + szmcode))
+        pt = gcref(T['startpt'])['pt'].address
+        pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+        line = lj_debug_line(pt, pc)
+        name = proto_chunkname(pt)
+        if name:
+            path = lstr2str(name)
+            out("%s:%d\n" % (path, line))
 
 ltrace()
 
@@ -2023,7 +2052,7 @@ def dumpcallfunc(T, ins):
 
 class lir(gdb.Command):
     """This command prints out all the IR code for the trace specified by its number.
-Usage: lir"""
+Usage: lir traceno"""
 
     def __init__ (self):
         super (lir, self).__init__("lir", gdb.COMMAND_USER)
@@ -2032,7 +2061,7 @@ Usage: lir"""
         argv = gdb.string_to_argv(args)
 
         if len(argv) != 1:
-            raise gdb.GdbError("usage: lir trace-no")
+            raise gdb.GdbError("usage: lir traceno")
 
         traceno = int(argv[0])
         L = get_global_L()
@@ -2040,8 +2069,12 @@ Usage: lir"""
         g = G(L)
         J = G2J(g)
 
-        if traceno < 0 or traceno > J['sizetrace']:
-            raise gdb.GdbError("bad trace number: %d" % traceno)
+        freetrace = trace_findfree(J)
+        if not freetrace:
+            raise gdb.GdbError("No trace found")
+
+        if traceno < 0 or traceno >= freetrace:
+            raise gdb.GdbError("trace number out of range: %d" % traceno)
 
         T = traceref(J, traceno)
         if T:
