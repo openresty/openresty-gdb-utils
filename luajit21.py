@@ -456,7 +456,8 @@ def traceref(J, n):
 
 class lbt(gdb.Command):
     """This command dumps out the current Lua-land backtrace in the lua_State specified. Only LuaJIT 2.1 is supported.
-Usage: lbt [L]"""
+Usage: lbt [L]
+       lbt full [L]"""
 
     def __init__ (self):
         super (lbt, self).__init__("lbt", gdb.COMMAND_USER)
@@ -1073,7 +1074,7 @@ def dump_upvalues(fn, pt):
                 (name, ptr2int(tvp), ltype(tvp), int(uv['closed'])))
 
 class lfunc(gdb.Command):
-    """This command prints out all the Lua functions (the GCfunc* pointers) via the file name and file line number where the function is defined.
+    """This command prints out all the Lua functions (the GCfunc* pointers) filtered by the file name and file line number where the function is defined.
 Usage: lfunc file lineno"""
 
     def __init__ (self):
