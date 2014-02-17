@@ -17,6 +17,7 @@ Table of Contents
     * [ltrace](#ltrace)
     * [lmainL](#lmainl)
     * [lcurL](#lcurl)
+    * [lglobtab](#lglobtab)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -321,6 +322,28 @@ Prints out the `lua_State` pointer value for current running Lua thread. For exa
 ```text
 (gdb) lcurL
 (lua_State*)0x41fe1378
+```
+
+[Back to TOC](#table-of-contents)
+
+lglobtab
+--------
+**syntax:** *lglobtab*
+
+**syntax:** *lglobtab L*
+
+**file** *luajit21.py*
+
+Prints out the global environment table for the specified Lua thread (or the current running Lua thread if the argument is omitted).
+
+For instance,
+
+```text
+(gdb) lglobtab
+(GCtab*)0x41fe29b0
+
+(gdb) lglobtab (lua_State*)0x41fe1378
+(GCtab*)0x41fe29b0
 ```
 
 [Back to TOC](#table-of-contents)

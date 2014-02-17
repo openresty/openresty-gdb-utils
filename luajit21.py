@@ -608,7 +608,7 @@ Usage: lcurL"""
 lcurL()
 
 class lglobtab(gdb.Command):
-    """This command prints out the global table.
+    """This command prints out the global environment table.
 Usage: lglobtab [L]"""
 
     def __init__ (self):
