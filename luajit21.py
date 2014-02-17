@@ -720,10 +720,11 @@ Usage: ltabgets tab field"""
 
         tv = lj_tab_getstr(tab, key)
         if tv:
-            out("(TValue*)0x%x\n" % ptr2int(tv))
-            out("type: %s\n" % ltype(tv))
+            out("(TValue*)%#x\n" % ptr2int(tv))
+            dump_tvalue(tv)
+
         else:
-            raise gdb.GdbError("Key not found.")
+            raise gdb.GdbError("Key \"%s\" not found." % key)
 
         #print "g: ", hex(int(L['glref']['ptr32']))
 
@@ -923,24 +924,8 @@ def dump_tvalue(o, deep=False):
 
     elif tvisfunc(o):
         fn = gcval(o)['fn'].address
-        pt = funcproto(fn)
-        if pt:
-            lineno = pt['firstline']
-            #print "proto: 0x%x\n" % ptr2int(pt)
-            name = proto_chunkname(pt)
-            #print "name: 0x%x\n" % ptr2int(name)
-            #print "len: %d\n" % int(name['len'])
-            if name:
-                try:
-                    path = lstr2str(name)
-                    out("\t\tLua function (GCfunc*)0x%x at %s:%d\n" \
-                            % (ptr2int(fn), path, lineno))
-                    return
-
-                except Exception as e:
-                    out("ERROR: failed to resolve chunk name: %s\n" % e)
-
-        out("\t\tfunction (0x%x)\n" % ptr2int(o))
+        s = fmtfunc(fn)
+        out("\t\tfunction %s: (GCfunc*)%#x\n" % (s, ptr2int(fn)))
 
     elif deep and tvistab(o):
         dump_table(tabV(o))

@@ -18,6 +18,7 @@ Table of Contents
     * [lmainL](#lmainl)
     * [lcurL](#lcurl)
     * [lglobtab](#lglobtab)
+    * [ltabgets](#ltabgets)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -344,6 +345,29 @@ For instance,
 
 (gdb) lglobtab (lua_State*)0x41fe1378
 (GCtab*)0x41fe29b0
+```
+
+[Back to TOC](#table-of-contents)
+
+ltabgets
+--------
+**syntax:** *ltabgets tab field*
+
+**file** *luajit21.py*
+
+Prints out the value of the specified string field in the Lua table specified by its `TValue` or `GCtab` pointer.
+
+```text
+(gdb) ltabgets (GCtab*)0x41fe29b0 dog
+Key "dog" not found.
+
+(gdb) ltabgets (GCtab*)0x41fe29b0 assert
+(TValue*)0x41fe2a20
+        function assert: (GCfunc*)0x41fe3d38
+
+(gdb) ltabgets (TValue*)0x41f1f450 dog
+(TValue*)0x41f1f6d8
+        number 21.5
 ```
 
 [Back to TOC](#table-of-contents)
