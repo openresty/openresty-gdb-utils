@@ -18,6 +18,7 @@ Table of Contents
     * [lir](#lir)
     * [lmainL](#lmainl)
     * [lcurL](#lcurl)
+    * [lg](#lg)
     * [lglobtab](#lglobtab)
     * [ltabgets](#ltabgets)
     * [lpc](#lpc)
@@ -367,6 +368,28 @@ Prints out the `lua_State` pointer value for current running Lua thread. For exa
 ```text
 (gdb) lcurL
 (lua_State*)0x41fe1378
+```
+
+[Back to TOC](#table-of-contents)
+
+lg
+--
+**syntax:** *lg*
+
+**syntax:** *lg [L]*
+
+**file** *luajit21.py*
+
+Prints out the `global_State` pointer value from the `lua_State` pointer value specified or from the current main VM state automatically discovered.
+
+Below are some examples:
+
+```text
+(gdb) lg
+(global_State*)0x41fe13b8
+
+(gdb) lg (lua_State*)0x41fe1378
+(global_State*)0x41fe13b8
 ```
 
 [Back to TOC](#table-of-contents)
