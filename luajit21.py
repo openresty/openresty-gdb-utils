@@ -983,7 +983,7 @@ Usage: lval tv"""
 lval()
 
 class lproto(gdb.Command):
-    """This command prints out all the Lua prototypes (the GCproto* pointers) via the file name and file line number where the function is defined.
+    """This command prints out all the Lua prototypes (the GCproto* pointers) filtered by the file name and file line number where the function is defined.
 Usage: lproto file lineno"""
 
     def __init__ (self):
