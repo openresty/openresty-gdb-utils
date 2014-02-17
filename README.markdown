@@ -15,6 +15,8 @@ Table of Contents
     * [lvmst](#lvmst)
     * [lval](#lval)
     * [ltrace](#ltrace)
+    * [lmainL](#lmainl)
+    * [lcurL](#lcurl)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -289,6 +291,36 @@ When being invoked without any arguments, this command just prints out the total
 ```text
 (gdb) ltrace
 Found 253 traces.
+```
+
+[Back to TOC](#table-of-contents)
+
+lmainL
+------
+**syntax:** *lmainL*
+
+**file** *luajit21.py*
+
+Prints out the `lua_State` pointer value for the main LuaJIT VM state. For example,
+
+```text
+(gdb) lmainL
+(lua_State*)0x41fe1378
+```
+
+[Back to TOC](#table-of-contents)
+
+lcurL
+-----
+**syntax:** *lcurL*
+
+**file** *luajit21.py*
+
+Prints out the `lua_State` pointer value for current running Lua thread. For example,
+
+```text
+(gdb) lcurL
+(lua_State*)0x41fe1378
 ```
 
 [Back to TOC](#table-of-contents)
