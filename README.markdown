@@ -21,6 +21,7 @@ Table of Contents
     * [lglobtab](#lglobtab)
     * [ltabgets](#ltabgets)
     * [lpc](#lpc)
+    * [lproto](#lproto)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -429,6 +430,25 @@ For example,
     proto: (GCproto*)0x419ee930
     source line: @.../lua/waf-core.lua:1330
     proto first line: 1282
+```
+
+[Back to TOC](#table-of-contents)
+
+lproto
+------
+**syntax:** *lproto file lineno*
+
+**file** *luajit21.py*
+
+Prints out all the Lua prototype objects (in the form of `GCproto` pointer values) filtered by the Lua file name and file line number where the corresponding Lua function is defined.
+
+The file name can be specified as the last part of its path.
+
+Below is an example,
+
+```text
+(gdb) lproto regex.lua 273
+Found Lua proto (GCproto*)0x41221740 at @.../lua-resty-core/lib/resty/core/regex.lua:273
 ```
 
 [Back to TOC](#table-of-contents)
