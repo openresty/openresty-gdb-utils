@@ -1292,7 +1292,7 @@ Usage: lpc pc"""
 
         pc = gdbutils.parse_ptr(argv[0], "BCIns*")
 
-        out("pc type: %s\n" % str(pc.type))
+        #out("pc type: %s\n" % str(pc.type))
 
         locate_pc(pc)
 

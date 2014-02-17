@@ -20,6 +20,7 @@ Table of Contents
     * [lcurL](#lcurl)
     * [lglobtab](#lglobtab)
     * [ltabgets](#ltabgets)
+    * [lpc](#lpc)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -409,6 +410,25 @@ Key "dog" not found.
 (gdb) ltabgets (TValue*)0x41f1f450 dog
 (TValue*)0x41f1f6d8
         number 21.5
+```
+
+[Back to TOC](#table-of-contents)
+
+lpc
+---
+**syntax:** *lpc pc*
+
+**file** *luajit21.py*
+
+Prints out the Lua prototype (GCproto object) whose bytecode contains the PC value specified as the BCIns pointer value. The Lua source line's location (file name and line number) will also be printed out.
+
+For example,
+
+```text
+    (gdb) lpc 0x419eeb4c
+    proto: (GCproto*)0x419ee930
+    source line: @.../lua/waf-core.lua:1330
+    proto first line: 1282
 ```
 
 [Back to TOC](#table-of-contents)
