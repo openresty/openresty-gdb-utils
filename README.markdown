@@ -24,6 +24,7 @@ Table of Contents
     * [lpc](#lpc)
     * [lproto](#lproto)
     * [lfunc](#lfunc)
+    * [luv](#luv)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -493,6 +494,28 @@ Below is an example,
 Found Lua function (GCfunc*)0x41b8efd0 at
 @/home/agentzh/git/lua-resty-core/lib/resty/core/base.lua:137
 ```
+
+[Back to TOC](#table-of-contents)
+
+luv
+---
+**syntax:** *luv func*
+
+**file** *luajit21.py*
+
+Prints out names and values for all the upvalues associated with the `GCfunc` pointer value specified.
+
+Below is an example:
+
+```text
+(gdb) luv (GCfunc*)0x41b8efd0
+Found 3 upvalues.
+upvalue "str_buf_size": value=(TValue*)0x41b82258 value_type=number closed=1
+upvalue "ffi_new": value=(TValue*)0x41b8cc38 value_type=func closed=1
+upvalue "str_buf": value=(TValue*)0x41b8cc80 value_type=cdata closed=1
+```
+
+You can get the `GCfunc` pointer value via the [lfunc](#lfunc) command.
 
 [Back to TOC](#table-of-contents)
 
