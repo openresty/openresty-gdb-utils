@@ -25,6 +25,7 @@ Table of Contents
     * [lproto](#lproto)
     * [lfunc](#lfunc)
     * [luv](#luv)
+    * [lgc](#lgc)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -523,6 +524,27 @@ upvalue "ffi_gc": value=(TValue*)0x4188de88 value_type=function closed=1
 ```
 
 You can get the `GCfunc` pointer value via the [lfunc](#lfunc) command.
+
+[Back to TOC](#table-of-contents)
+
+lgc
+---
+**syntax:** *lgc*
+
+**syntax:** *lgc L*
+
+**file** *luajit21.py*
+
+Prints out the current size of the total memory that is allocated by the LuaJIT GC.
+
+This is very useful for checking if the LuaJIT VM takes up too much memory on the Lua land.
+
+Below is an example:
+
+```text
+(gdb) lgc
+The current memory size (allocated by GC): 898960 bytes
+```
 
 [Back to TOC](#table-of-contents)
 

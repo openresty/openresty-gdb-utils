@@ -2178,3 +2178,26 @@ Usage: lir traceno"""
 
 lir()
 
+class lgc(gdb.Command):
+    """This command prints out the current size of memory allocated by the LuaJIT GC.
+Usage: lgc [L]"""
+
+    def __init__ (self):
+        super (lgc, self).__init__("lgc", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) == 1:
+            L = gdbutils.parse_ptr(argv[0], "lua_State*")
+            if not L or str(L) == "void":
+                raise gdb.GdbError("L empty")
+        else:
+            L = get_global_L()
+
+        g = G(L)
+        out("The current memory size (allocated by GC): %d bytes\n" \
+                % int(g['gc']['total']))
+
+lgc()
+
