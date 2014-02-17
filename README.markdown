@@ -22,6 +22,7 @@ Table of Contents
     * [ltabgets](#ltabgets)
     * [lpc](#lpc)
     * [lproto](#lproto)
+    * [lfunc](#lfunc)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -449,6 +450,25 @@ Below is an example,
 ```text
 (gdb) lproto regex.lua 273
 Found Lua proto (GCproto*)0x41221740 at @.../lua-resty-core/lib/resty/core/regex.lua:273
+```
+This command works by walking through all the GC objects in the LuaJIT VM.
+
+[Back to TOC](#table-of-contents)
+
+lfunc
+-----
+**syntax:** *lfunc file lineno*
+
+**file** *luajit21.py*
+
+Similar to the [lproto](#lproto) command, but return all the Lua function objects (in `GCfunc` pointer values) instead of the Lua prototype objects.
+
+Below is an example,
+
+```text
+(gdb) lfunc base.lua 137
+Found Lua function (GCfunc*)0x41b8efd0 at
+@/home/agentzh/git/lua-resty-core/lib/resty/core/base.lua:137
 ```
 
 [Back to TOC](#table-of-contents)
