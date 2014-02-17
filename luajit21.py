@@ -253,7 +253,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
         if not cf or cframe_pc(cf) == cframe_L(cf):
             return NO_BCPOS
         ins = cframe_pc(cf)
-        print("cframe pc: [0x%x]" % ptr2int(ins))
+        #print("cframe pc: [0x%x]" % ptr2int(ins))
     else:
         if frame_islua(nextframe):
             #print("frame pc")
@@ -268,7 +268,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
     if pos > pt['sizebc']:
         T = ((ins - 1).cast(typ("char*")) - \
                 typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
-        print("T: %d" % int(T['traceno']))
+        #print("T: %d" % int(T['traceno']))
         pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
     return pos
 
