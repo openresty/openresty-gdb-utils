@@ -15,6 +15,7 @@ Table of Contents
     * [lvmst](#lvmst)
     * [lval](#lval)
     * [ltrace](#ltrace)
+    * [lir](#lir)
     * [lmainL](#lmainl)
     * [lcurL](#lcurl)
     * [lglobtab](#lglobtab)
@@ -293,6 +294,46 @@ When being invoked without any arguments, this command just prints out the total
 ```text
 (gdb) ltrace
 Found 253 traces.
+```
+
+[Back to TOC](#table-of-contents)
+
+lir
+---
+**syntax:** *lir traceno*
+
+**file** *luajit21.py*
+
+Dumps out the IR code (with CPU register and snapshot details) for the LuaJIT trace specified by its trace number. The output format is the same as LuaJIT's own `-jdump=+rs` output.
+
+For instance,
+
+```text
+(gdb) lir 20
+(GCtrace*)0x419ff678
+IR count: 16
+
+---- TRACE 20 start 19/? meteor.lua-3.lua:64
+---- TRACE 20 IR
+0001 rbp      int SLOAD  #13   PI
+....              SNAP   #0   [ ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 0001 ---- ---- 0001 ]
+0002 rbx   >  tab SLOAD  #11   T
+0003          int FLOAD  0002  tab.asize
+0004       >  int ABC    0003  0001
+0005 rbx      p32 FLOAD  0002  tab.array
+0006          p32 AREF   0005  0001
+0007       >  int ALOAD  0006
+0008 rsi   >  str SLOAD  #12   T
+0009          str TOSTR  0001  INT
+0010 rdi      p32 BUFHDR [0x41fe1414]  RESET
+0011 rdi      p32 BUFPUT 0010  0008
+0012 rdi      p32 BUFPUT 0011  "\,b"
+0013 rdi      p32 BUFPUT 0012  0009
+0014 rax      str BUFSTR 0013  0010
+0015 rbp      int ADD    0001  +1  
+....              SNAP   #1   [ ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 0014 ]
+0016       >  int LE     0015  +99 
+....              SNAP   #2   [ ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 0014 0015 ---- ---- 0015 ]
 ```
 
 [Back to TOC](#table-of-contents)
