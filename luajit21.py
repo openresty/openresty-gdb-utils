@@ -1242,10 +1242,9 @@ Usage: ltrace [traceno]"""
         if not freetrace:
             raise gdb.GdbError("No trace found")
 
-        ntraces = freetrace - 1
-        out("Found %d traces.\n" % ntraces)
-
         if not traceno:
+            ntraces = freetrace - 1
+            out("Found %d traces.\n" % ntraces)
             return
 
         if traceno < 0 or traceno >= freetrace:

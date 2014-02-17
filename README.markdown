@@ -248,6 +248,8 @@ table (GCtab*)0x41f1f688 (narr=5, nrec=1):
 
 ltrace
 ------
+**syntax:** *ltrace*
+
 **syntax:** *ltrace traceno*
 
 **file** *luajit21.py*
@@ -280,6 +282,13 @@ Dump of assembler code from 0x7f2435c85870 to 0x7f2435c859bf:
    0x00007f2435c859b4:  mov    r14d,0x40ff1f90
    0x00007f2435c859ba:  jmp    0x7f2444a899fa <lj_vm_exit_interp>
 End of assembler dump.
+```
+
+When being invoked without any arguments, this command just prints out the total number of traces, for instance,
+
+```text
+(gdb) ltrace
+Found 253 traces.
 ```
 
 [Back to TOC](#table-of-contents)
