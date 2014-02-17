@@ -420,7 +420,7 @@ lpc
 
 **file** *luajit21.py*
 
-Prints out the Lua prototype (GCproto object) whose bytecode contains the PC value specified as the BCIns pointer value. The Lua source line's location (file name and line number) will also be printed out.
+Prints out the Lua prototype (`GCproto` object) whose bytecode contains the PC value specified as the `BCIns` pointer value. The Lua source line's location (file name and line number) will also be printed out.
 
 For example,
 
