@@ -505,7 +505,7 @@ luv
 
 Prints out names and values for all the upvalues associated with the `GCfunc` pointer value specified.
 
-Below is an example:
+Below are some examples:
 
 ```text
 (gdb) luv (GCfunc*)0x41b8efd0
@@ -513,6 +513,13 @@ Found 3 upvalues.
 upvalue "str_buf_size": value=(TValue*)0x41b82258 value_type=number closed=1
 upvalue "ffi_new": value=(TValue*)0x41b8cc38 value_type=func closed=1
 upvalue "str_buf": value=(TValue*)0x41b8cc80 value_type=cdata closed=1
+
+(gdb) luv (GCfunc*)0x4188de10
+Found 4 upvalues.
+upvalue "C": value=(TValue*)0x41211128 value_type=userdata closed=1
+upvalue "ngx_log": value=(TValue*)0x4188de48 value_type=function closed=1
+upvalue "ngx_ERR": value=(TValue*)0x4188de68 value_type=number closed=1
+upvalue "ffi_gc": value=(TValue*)0x4188de88 value_type=function closed=1
 ```
 
 You can get the `GCfunc` pointer value via the [lfunc](#lfunc) command.
