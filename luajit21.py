@@ -1910,8 +1910,10 @@ def formatk(tr, idx):
                 .replace("\\ ", " ") \
                 .replace("\\]", "]") \
                 .replace("\\+", "+") \
+                .replace("\\^", "^") \
                 .replace("\\*", "*") \
                 .replace("\\?", "?") \
+                .replace("\\/", "/") \
                 .replace("\\\\", "\\")
         if len(k) > 20:
             s = '"%.20s"~' % k
