@@ -2,6 +2,7 @@ import gdb
 import gdbutils
 import ngxlua
 import string
+import re
 
 typ = gdbutils.typ
 null = gdbutils.null
