@@ -108,6 +108,8 @@ def get_global_L():
 
 def get_cur_L():
     mL = get_global_L()
+    if mL == null():
+        return mL
     return gcref(G(mL)['cur_L'])['th'].address
 
 def gcval(o):
@@ -488,6 +490,9 @@ Usage: lbt [L]
                 L = get_cur_L()
 
         #print "g: ", hex(int(L['glref']['ptr32']))
+
+        if L == null():
+            raise gdb.GdbError("L is NULL")
 
         g = G(L)
 
@@ -969,6 +974,9 @@ Usage: lval tv"""
             if name:
                 path = lstr2str(name)
                 out("proto definition: %s:%d\n" % (path, int(o['firstline'])))
+            begin = ptr2int(proto_bc(o))
+            end = ptr2int(begin + o['sizebc'])
+            out("bytecode range: %#x, %#x\n" % (begin, end))
             return
 
         if typstr == "GCtab *":
