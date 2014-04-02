@@ -104,7 +104,7 @@ Usage: ltab addr [nil] [r]"""
     def print_table(self, table, depth, print_nil, recursive_print):
         narray = table['asize']
         nhmask = table['hmask']
-        sys.stdout.write("tab(%d, %d): {" % (narray, nhmask))
+        sys.stdout.write("tab(%d, %d): {\n" % (narray, nhmask))
         array = table['array']['ptr32'].cast(self.TValue_pointer_type)
         for i in xrange(narray):
             if i == 0:
@@ -134,7 +134,7 @@ Usage: ltab addr [nil] [r]"""
             sys.stdout.write("}")
 
         else:
-            sys.stdout.write("\b\b}")
+            sys.stdout.write("}")
         return
 
     def invoke (self, args, from_tty):
