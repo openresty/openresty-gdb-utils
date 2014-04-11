@@ -281,6 +281,8 @@ machine code end addr: 0x7f2435c859bf
 The starting address and end address of the machine code region in the output can be used to obtain the machine code dump for the trace:
 
 ```text
+(gdb) set disassembly-flavor intel
+
 (gdb) disas 0x7f2435c85870, 0x7f2435c859bf
 Dump of assembler code from 0x7f2435c85870 to 0x7f2435c859bf:
    0x00007f2435c85870:  mov    DWORD PTR ds:0x40ff1410,0x292
