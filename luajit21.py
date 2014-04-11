@@ -821,6 +821,9 @@ def ctype_get(cts, id):
     return cts['tab'][id].address
 
 CTSHIFT_NUM = 28
+CT_HASSIZE = 5
+CT_ATTRIB = 8
+CTMASK_CID = 0x0000ffff
 
 def ctype_type(info):
     return info >> CTSHIFT_NUM
@@ -2212,3 +2215,183 @@ Usage: lgc [L]"""
 
 lgc()
 
+class lgcstat(gdb.Command):
+    """This command prints the statistics of the objects allocated by the LuaJit GC
+Usage: lgcstat"""
+
+    def __init__ (self):
+        super (lgcstat, self).__init__("lgcstat", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        L = get_global_L()
+        if not L:
+            raise gdb.GdbError("not able to get global_L")
+
+        g = G(L)
+        ocnt = [ 0 for i in range(~LJ_TNUMX())]
+        ototal_sz = [0 for i in range(~LJ_TNUMX())]
+        omax = [0 for i in range(~LJ_TNUMX())]
+        omin = [0x7fffffff for i in range(~LJ_TNUMX())]
+
+        # step 1: Go through all non-string objects
+        o = gcref(g['gc']['root'])
+        while o:
+            ty = int(o['gch']['gct'])
+            ocnt[ty] = ocnt[ty] + 1
+            sz = self.get_obj_sz(g, o)
+            ototal_sz[ty] += sz;
+            omax[ty] = max(omax[ty], sz);
+            omin[ty] = min(omin[ty], sz);
+            o = gcref(o['gch']['nextgc'])
+
+        # step 2: Go through strings
+        for i in range(0, 1 + g['strmask']):
+            o = gcref(g['strhash'][i])
+            ty = int(~LJ_TSTR());
+            while o:
+                ocnt[ty] = ocnt[ty] + 1
+                sz = self.get_obj_sz(g, o)
+                ototal_sz[ty] += sz;
+                omax[ty] = max(omax[ty], sz);
+                omin[ty] = min(omin[ty], sz);
+                o = gcref(o['gch']['nextgc'])
+
+        # step 3: Figure out the size of misc data structures
+        strhash_size = (g['strmask'] + 1) * typ("GCRef").sizeof
+        g_tmpbuf_sz = g['tmpbuf']['e']['ptr32'] - g['tmpbuf']['b']['ptr32']
+        jit_state_sz = self.get_jit_state_sz(G2J(g))
+        ctype_state_sz = 0
+        cts = ctype_ctsG(g)
+        if cts:
+            ctype_state_sz = typ("CTState").sizeof;
+            ctype_state_sz += typ("CType").sizeof * cts['sizetab']
+
+        # step 4: Output the statistics
+        ty_name = ["str", "upval", "thread", "proto", "func", "trace", "cdata",
+                   "tab", "udata"]
+        total_sz = 0
+        for i in range(~LJ_TNUMX() - ~LJ_TSTR()):
+            idx = int(i + ~LJ_TSTR())
+            if ocnt[idx] == 0:
+               omin[idx] = 0
+
+            total_sz += ototal_sz[idx]
+
+            out ("%4d %-10s objects: max=%d, avg = %d, min=%d, sum=%d\n" %
+                 (ocnt[idx], ty_name[i], omax[idx], ototal_sz[idx]/max(1,
+                  ocnt[idx]), omin[idx], ototal_sz[idx]))
+
+        out ("\n sizeof strhash %d\n" % strhash_size)
+        out (" sizeof g->tmpbuf %d\n" % g_tmpbuf_sz)
+        out (" sizeof ctype_state %d\n" % ctype_state_sz)
+        out (" sizeof jit_state %d\n" % jit_state_sz)
+        total_sz += strhash_size + g_tmpbuf_sz + ctype_state_sz;
+        total_sz += typ("GG_State").sizeof - typ("lua_State").sizeof
+        total_sz += jit_state_sz
+
+        out ("\ntotal sz %d\n" % total_sz)
+        out ("g->strnum %d, g->gc.total %d\n" %
+               (int(g['strnum']), int(g['gc']['total'])))
+
+    def get_jit_state_sz(self, J):
+        sz = 0
+
+        # list of 64-bit constants
+        k = mref(J['k64'], "K64Array")
+        len = 0;
+        while k:
+            len += 1
+            k = mref(k['next'], "K64Array")
+        sz = typ("K64Array").sizeof * len
+
+        sz += J['sizesnapmap'] * typ("SnapEntry").sizeof
+        sz += J['sizesnap'] * typ("SnapShot").sizeof
+        sz += (J['irtoplim'] - J['irbotlim']) * typ("IRIns").sizeof
+        sz += J['sizetrace'] * typ("GCRef").sizeof
+        return sz
+
+    def get_obj_sz(self, g, o) :
+        ty = o['gch']['gct']
+        if ty == ~LJ_TSTR():
+            return typ("GCstr").sizeof + o['str']['len'] + 1
+
+        if ty == ~LJ_TUPVAL():
+            return typ("GCupval").sizeof
+
+        if ty == ~LJ_TTHREAD():
+            th = o['th']
+            sz = typ('lua_State').sizeof + typ('TValue').sizeof*th['stacksize']
+            uvref = gcref(th['openupval']);
+            while uvref != 0:
+                sz += self.get_obj_sz(g, uvref);
+                uvref = gcref(uvref['gch']['nextgc'])
+            return sz;
+
+        if ty == ~LJ_TPROTO():
+            return o['pt']['sizept']
+
+        if ty == ~LJ_TFUNC():
+            fn = o['fn']
+            if isluafunc(fn):
+                sz = typ("GCfuncL").sizeof
+                sz += typ("GCRef").sizeof * (fn['l']['nupvalues'] - 1)
+                return sz;
+            else:
+                sz = typ("GCfuncC").sizeof
+                sz += typ("TValue").sizeof * (fn['c']['nupvalues'] - 1)
+                return sz
+
+        if ty == ~LJ_TTRACE():
+            T = o.cast(typ("GCtrace*"))
+            sz = (typ("GCtrace").sizeof + 7) & ~7
+            sz += (T['nins'] - T['nk']) * typ("IRIns").sizeof
+            sz += T['nsnap'] * typ("SnapShot").sizeof
+            sz += T['nsnapmap'] * typ("SnapEntry").sizeof
+            return sz;
+
+        if ty == ~LJ_TTAB():
+            T = o['tab']
+            asize = T['asize']
+            hmask = T['hmask']
+            colo = T['colo']
+            tval_sz = typ("TValue").sizeof
+
+            sz = typ("GCtab").sizeof
+            if hmask > 0:
+                sz += typ("Node").sizeof * (hmask + 1)
+
+            if asize > 0 and colo <= 0:
+                sz += tval_sz * asize
+
+            if colo != 0:
+                sz += (colo & 0x7f) * tval_sz
+
+            return sz
+
+        if ty == ~LJ_TUDATA():
+            return typ("GCudata").sizeof + o['ud']['len']
+
+        if ty == ~LJ_TCDATA():
+            cd = o['cd']
+            if cd['marked'] & 0x80:
+               # is vector
+               addr = o.cast(typ("char*")) - typ("GCcdataVar").sizeof
+               cdv = addr.cast(typ("GCcdataVar*"))
+               return cdv['len'] + cdv['extra']
+
+            sz = typ("GCcdata").sizeof
+            cts = ctype_ctsG(g)
+            cts_tab = cts['tab']
+            cty = cts_tab[cd['ctypeid']]
+            while ctype_type(cty['info']) == CT_ATTRIB:
+                cty = cts_tab[cty['info'] & CTMASK_CID]
+
+            if ctype_type(cty['info']) <= CT_HASSIZE:
+                sz += cty['size']
+            else:
+                sz += typ("void*").sizeof
+            return sz
+
+        return 0
+
+lgcstat()
