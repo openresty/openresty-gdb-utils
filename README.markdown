@@ -550,6 +550,39 @@ The current memory size (allocated by GC): 898960 bytes
 
 [Back to TOC](#table-of-contents)
 
+lgcstat
+-------
+**syntax:** *lgcstat*
+
+**file** *luajit21.py*
+
+This command prints out a statistics summary for all the GC objects (both live ones and dead ones that are not yet collected).
+
+The output is very similar to the systemtap tool, [lj-gc-objs](https://github.com/agentzh/stapxx#lj-gc-objs).
+
+Below is an example:
+
+```text
+(gdb) lgcstat
+15172 str        objects: max=2956, avg = 51, min=18, sum=779126
+ 987 upval      objects: max=24, avg = 24, min=24, sum=23688
+ 104 thread     objects: max=1648, avg = 1622, min=528, sum=168784
+ 431 proto      objects: max=226274, avg = 2234, min=78, sum=963196
+ 952 func       objects: max=144, avg = 30, min=20, sum=28900
+ 446 trace      objects: max=23400, avg = 1857, min=160, sum=828604
+2965 cdata      objects: max=4112, avg = 17, min=12, sum=51576
+18961 tab        objects: max=24608, avg = 207, min=32, sum=3943256
+   9 udata      objects: max=176095, avg = 39313, min=32, sum=353822
+
+ sizeof strhash 65536
+ sizeof g->tmpbuf 512
+ sizeof ctype_state 8664
+ sizeof jit_state 53792
+
+total sz 7274672
+g->strnum 15172, g->gc.total 7274672
+```
+
 Prerequisites
 =============
 
