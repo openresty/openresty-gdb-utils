@@ -1351,7 +1351,12 @@ REF_BIAS = 0x8000
 
 irnames = "LT    GE    LE    GT    ULT   UGE   ULE   UGT   EQ    NE    ABC   RETF  NOP   BASE  PVAL  GCSTEPHIOP  LOOP  USE   PHI   RENAMEPROF  KPRI  KINT  KGC   KPTR  KKPTR KNULL KNUM  KINT64KSLOT BNOT  BSWAP BAND  BOR   BXOR  BSHL  BSHR  BSAR  BROL  BROR  ADD   SUB   MUL   DIV   MOD   POW   NEG   ABS   ATAN2 LDEXP MIN   MAX   FPMATHADDOV SUBOV MULOV AREF  HREFK HREF  NEWREFUREFO UREFC FREF  STRREFLREF  ALOAD HLOAD ULOAD FLOAD XLOAD SLOAD VLOAD ASTOREHSTOREUSTOREFSTOREXSTORESNEW  XSNEW TNEW  TDUP  CNEW  CNEWI BUFHDRBUFPUTBUFSTRTBAR  OBAR  XBAR  CONV  TOBIT TOSTR STRTO CALLN CALLA CALLL CALLS CALLXSCARG  "
 
-ircall = ("lj_str_cmp", "lj_str_find", "lj_str_new", "lj_strscan_num", "lj_strfmt_int",
+ircall = (
+"lj_str_cmp",
+"lj_str_find",
+"lj_str_new",
+"lj_strscan_num",
+"lj_strfmt_int",
 "lj_strfmt_num",
 "lj_strfmt_char",
 "lj_strfmt_putint",
