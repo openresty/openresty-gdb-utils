@@ -1,0 +1,73 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+my $ljdir = shift or die "No luajit source directory specified.\n";
+
+my $infile = "luajit21.py";
+open my $in, $infile
+    or die "Cannot open $infile for reading: $!\n";
+my $pysrc = do { local $/; <$in> };
+close $in;
+
+$infile = "$ljdir/src/jit/vmdef.lua";
+open $in, $infile
+    or die "Cannot open $infile for reading: $!\n";
+my $luasrc = do { local $/; <$in> };
+close $in;
+
+if ($luasrc =~ /^(irnames = ".*?"),$/sm) {
+    my $stmt = $1;
+    my $cnt = ($pysrc =~ s/^irnames = ".*?"$/$stmt/sm);
+    if (!$cnt) {
+        die "Cannot find irnames definition in luajit21.py.\n";
+    }
+
+} else {
+    die "No irnames found in $infile.\n";
+}
+
+if ($luasrc =~ /^ircall = \{\s*\[0\]=(.*?)\},$/sm) {
+    my $elems = $1;
+    my $cnt = ($pysrc =~ s/^ircall = \[\n.*?\]$/ircall = [\n$elems]/sm);
+    if (!$cnt) {
+        die "Cannot find ircall definition in luajit21.py.\n";
+    }
+
+} else {
+    die "No ircall found in $infile.\n";
+}
+
+if ($luasrc =~ /^irfield = \{\s*\[0\]=(.*?)\},$/sm) {
+    my $elems = $1;
+    $elems =~ s/,\s*$//;
+    my $cnt = ($pysrc =~ s/^irfield = \[.*?\]$/irfield = [ $elems ]/sm);
+    if (!$cnt) {
+        die "Cannot find irfield definition in luajit21.py.\n";
+    }
+
+} else {
+    die "No irfield found in $infile.\n";
+}
+
+if ($luasrc =~ /^irfpm = \{\s*\[0\]=(.*?)\},$/sm) {
+    my $elems = $1;
+    $elems =~ s/,\s*$//;
+    my $cnt = ($pysrc =~ s/^irfpm = \[.*?\]$/irfpm = [ $elems ]/sm);
+    if (!$cnt) {
+        die "Cannot find irfpm definition in luajit21.py.\n";
+    }
+
+} else {
+    die "No irfpm found in $infile.\n";
+}
+
+my $outfile = "luajit21.py_";
+open my $out, ">$outfile" or
+    die "Failed to open $outfile for writing: $!\n";
+print $out $pysrc;
+close $out;
+
+print "Wrote $outfile\n";
+

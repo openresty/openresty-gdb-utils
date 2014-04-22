@@ -1530,7 +1530,7 @@ def litname_SLOAD(mode):
         s += "I"
     return s
 
-irfield = [ "str.len", "func.env", "func.pc", "thread.env", "tab.meta", "tab.array", "tab.node", "tab.asize", "tab.hmask", "tab.nomm", "udata.meta", "udata.udtype", "udata.file", "cdata.ctypeid", "cdata.ptr", "cdata.int", "cdata.int64", "cdata.int64_4" ]
+irfield = [ "str.len", "func.env", "func.pc", "func.ffid", "thread.env", "tab.meta", "tab.array", "tab.node", "tab.asize", "tab.hmask", "tab.nomm", "udata.meta", "udata.udtype", "udata.file", "cdata.ctypeid", "cdata.ptr", "cdata.int", "cdata.int64", "cdata.int64_4" ]
 
 def litname_irfield(mode):
     return irfield[int(mode)]
@@ -1551,7 +1551,7 @@ def litname_CONV(mode):
         s += " check"
     return s
 
-irfpm = ["floor", "ceil", "trunc", "sqrt", "exp", "exp2", "log", "log2", "log10", "sin", "cos", "tan", "other"]
+irfpm = [ "floor", "ceil", "trunc", "sqrt", "exp", "exp2", "log", "log2", "log10", "sin", "cos", "tan", "other" ]
 
 def litname_FPMATH(mode):
     return irfpm[int(mode)]
