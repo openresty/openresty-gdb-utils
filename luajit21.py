@@ -2227,11 +2227,28 @@ Usage: lgcstat"""
     def __init__ (self):
         super (lgcstat, self).__init__("lgcstat", gdb.COMMAND_USER)
 
+    def init_sizeof(self):
+        self.TValue_sizeof = typ('TValue').sizeof
+        self.GCstr_sizeof = typ("GCstr").sizeof
+        self.GCupval_sizeof = typ("GCupval").sizeof
+        self.lua_State_sizeof = typ('lua_State').sizeof
+        self.GCfuncL_sizeof = typ("GCfuncL").sizeof
+        self.GCRef_sizeof = typ("GCRef").sizeof
+        self.GCfuncC_sizeof = typ("GCfuncC").sizeof
+        self.GCtrace_sizeof = typ("GCtrace").sizeof
+        self.Node_sizeof = typ("Node").sizeof
+        self.GCtab_sizeof = typ("GCtab").sizeof
+        self.GCudata_sizeof = typ("GCudata").sizeof
+        self.GCcdataVar_sizeof = typ("GCcdataVar").sizeof
+        self.GCcdata_sizeof = typ("GCcdata").sizeof
+        self.ptr_sizeof = typ("void*").sizeof
+
     def invoke (self, args, from_tty):
         L = get_global_L()
         if not L:
             raise gdb.GdbError("not able to get global_L")
 
+        self.init_sizeof()
         g = G(L)
         ocnt = [ 0 for i in range(~LJ_TNUMX())]
         ototal_sz = [0 for i in range(~LJ_TNUMX())]
@@ -2318,14 +2335,14 @@ Usage: lgcstat"""
     def get_obj_sz(self, g, o) :
         ty = o['gch']['gct']
         if ty == ~LJ_TSTR():
-            return typ("GCstr").sizeof + o['str']['len'] + 1
+            return self.GCstr_sizeof + o['str']['len'] + 1
 
         if ty == ~LJ_TUPVAL():
-            return typ("GCupval").sizeof
+            return self.GCupval_sizeof
 
         if ty == ~LJ_TTHREAD():
             th = o['th']
-            sz = typ('lua_State').sizeof + typ('TValue').sizeof*th['stacksize']
+            sz = self.lua_State_sizeof + self.TValue_sizeof * th['stacksize']
             uvref = gcref(th['openupval']);
             while uvref != 0:
                 sz += self.get_obj_sz(g, uvref);
@@ -2338,17 +2355,17 @@ Usage: lgcstat"""
         if ty == ~LJ_TFUNC():
             fn = o['fn']
             if isluafunc(fn):
-                sz = typ("GCfuncL").sizeof
-                sz += typ("GCRef").sizeof * (fn['l']['nupvalues'] - 1)
+                sz = self.GCfuncL_sizeof
+                sz += self.GCRef_sizeof * (fn['l']['nupvalues'] - 1)
                 return sz;
             else:
-                sz = typ("GCfuncC").sizeof
-                sz += typ("TValue").sizeof * (fn['c']['nupvalues'] - 1)
+                sz = self.GCfuncC_sizeof
+                sz += self.TValue_sizeof * (fn['c']['nupvalues'] - 1)
                 return sz
 
         if ty == ~LJ_TTRACE():
             T = o.cast(typ("GCtrace*"))
-            sz = (typ("GCtrace").sizeof + 7) & ~7
+            sz = (self.GCtrace_sizeof + 7) & ~7
             sz += (T['nins'] - T['nk']) * typ("IRIns").sizeof
             sz += T['nsnap'] * typ("SnapShot").sizeof
             sz += T['nsnapmap'] * typ("SnapEntry").sizeof
@@ -2359,11 +2376,11 @@ Usage: lgcstat"""
             asize = T['asize']
             hmask = T['hmask']
             colo = T['colo']
-            tval_sz = typ("TValue").sizeof
+            tval_sz = self.TValue_sizeof
 
-            sz = typ("GCtab").sizeof
+            sz = self.GCtab_sizeof
             if hmask > 0:
-                sz += typ("Node").sizeof * (hmask + 1)
+                sz += self.Node_sizeof * (hmask + 1)
 
             if asize > 0 and colo <= 0:
                 sz += tval_sz * asize
@@ -2374,17 +2391,17 @@ Usage: lgcstat"""
             return sz
 
         if ty == ~LJ_TUDATA():
-            return typ("GCudata").sizeof + o['ud']['len']
+            return self.GCudata_sizeof + o['ud']['len']
 
         if ty == ~LJ_TCDATA():
             cd = o['cd']
             if cd['marked'] & 0x80:
                # is vector
-               addr = o.cast(typ("char*")) - typ("GCcdataVar").sizeof
+               addr = o.cast(typ("char*")) - self.GCcdataVar_sizeof
                cdv = addr.cast(typ("GCcdataVar*"))
                return cdv['len'] + cdv['extra']
 
-            sz = typ("GCcdata").sizeof
+            sz = self.GCcdata_sizeof
             cts = ctype_ctsG(g)
             cts_tab = cts['tab']
             cty = cts_tab[cd['ctypeid']]
@@ -2394,7 +2411,7 @@ Usage: lgcstat"""
             if ctype_type(cty['info']) <= CT_HASSIZE:
                 sz += cty['size']
             else:
-                sz += typ("void*").sizeof
+                sz += self.ptr_sizeof
             return sz
 
         return 0
