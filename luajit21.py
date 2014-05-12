@@ -506,6 +506,12 @@ Usage: lbt [L]
             T = traceref(J, traceno)
             base = tvref(g['jit_base'])
             if not base:
+                try:
+                    base = tvref(g['saved_jit_base'])
+                except:
+                    pass
+
+            if not base:
                 raise gdb.GdbError("jit base is NULL (trace #%d)" % int(T['traceno']))
             bt = lj_debug_dumpstack(L, T, 30, base, full)
 
