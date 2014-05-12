@@ -57,6 +57,9 @@ def LJ_TNUMX():
 def LJ_TISNUM():
     return newval("unsigned int", 0xfffeffff)
 
+def LJ_TISGCV():
+    return newval("unsigned int", 1 + ~4)
+
 FRAME_LUA = 0
 FRAME_C = 1
 FRAME_CONT = 2
@@ -91,6 +94,8 @@ NO_BCPOS = ~0
 
 FF_LUA = 0
 FF_C   = 1
+
+GCROOT_MAX = 38
 
 def get_global_L():
     gL, _ = gdb.lookup_symbol("globalL")
@@ -182,6 +187,12 @@ def frame_sized(f):
 def frame_prevd(f):
     #print "f = %x, sized = %x" % (ptr2int(f.cast(typ("char*"))), frame_sized(f))
     return (f.cast(typ("char*")) - frame_sized(f)).cast(typ("TValue*"))
+
+def frame_prev(f):
+    if frame_islua(f):
+        return frame_prevl(f)
+    else:
+        return frame_prevd(f)
 
 def tvref(r):
     return mref(r, "TValue")
@@ -667,6 +678,9 @@ def tvisstr(o):
 
 def tvisnumber(o):
     return itype(o) <= LJ_TISNUM()
+
+def tvisgcv(o):
+    return (itype(o) - LJ_TISGCV()) > (LJ_TNUMX() - LJ_TISGCV())
 
 def tvisint(o):
     return itype(o) == LJ_TISNUM()
@@ -2230,8 +2244,8 @@ class lgcstat(gdb.Command):
     """This command prints the statistics of the objects allocated by the LuaJit GC
 Usage: lgcstat"""
 
-    def __init__ (self):
-        super (lgcstat, self).__init__("lgcstat", gdb.COMMAND_USER)
+    def __init__ (self, classname="lgcstat"):
+        super (lgcstat, self).__init__(classname, gdb.COMMAND_USER)
 
     def init_sizeof(self):
         self.TValue_sizeof = typ('TValue').sizeof
@@ -2423,3 +2437,407 @@ Usage: lgcstat"""
         return 0
 
 lgcstat()
+
+class lgcpath(lgcstat):
+    """Given the size and optionally the type, this command print a path of GC
+       reference graph from root to an object of same type (if type is specified)
+       and whose size is no less than the specified size
+       Usage: lgcpath size [type]"""
+
+    def __init__ (self):
+        super (lgcpath, self).__init__("lgcpath")
+        self.baseclass = super(lgcpath, self)
+        self.init_datamembers()
+        self.obj_ty = ""
+
+    def init_datamembers(self):
+        self.gc_path = []
+        self.visited = {}
+        self.path_idx = 0
+        self.obj_size = 0
+        self.obj_annot = {}
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) == 1:
+            self.objsize = gdb.parse_and_eval(argv[0])
+        elif len(argv) == 2:
+            self.objsize = gdb.parse_and_eval(argv[0])
+            self.obj_ty = argv[1]
+        else:
+            raise gdb.GdbError("Usage: lgcpath objsize [str|tab|thr|upval|func|tr]")
+
+        if not self.objsize:
+            raise gdb.GdbError("object size is not specified")
+
+        L = get_global_L()
+        if not L:
+            raise gdb.GdbError("not able to get global_L")
+
+        self.init_datamembers()
+        # Otherwise, get_obj_sz() doesn't work as expected
+        self.baseclass.init_sizeof()
+
+        g = G(L)
+        thr = gcref(g['mainthref'])['th'].address
+
+        self.visited.clear()
+        self.dfs(thr, g)
+        self.visit_tval(g['registrytv'], g)
+        self.dfs(gcref(thr['env']), g)
+
+        gcroot = g['gcroot']
+        for idx in range(GCROOT_MAX):
+            ref = gcroot[idx]
+            if newval("int", ref) != 0:
+                self.dfs(gcref(ref), self.objsize)
+
+        if self.path_idx == 0:
+            out("No GC object of size %d\n" % self.objsize)
+
+    def is_visited(self, n):
+        try:
+            dummy = self.visited[ptr2int(n)]
+            return 1
+        except:
+            return 0
+
+    def set_visited(self, n):
+        self.visited[ptr2int(n)] = 1
+
+    def print_str(self, str, g):
+        len = str['len']
+        sz = typ("GCstr").sizeof + len + 1
+        out("str(sz:%d \"" % sz)
+
+        # print the content
+        p = str.cast(typ("char*"))
+        p += typ("GCstr").sizeof
+        printlen = min(len, 32)
+        for i in range(printlen):
+            #if i in range(32, 126):
+            c = p[i]
+            if c >= 32 and c <= 126 : #in range(32, 126):
+                out("%c" % c)
+            else:
+                out(".")
+
+        if printlen < len:
+            out(" ...")
+
+        out("\") -> ")
+
+    def print_func(self, fn, g):
+        sz = self.baseclass.get_obj_sz(g, fn.cast(typ("GCobj*")))
+        if isluafunc(fn):
+            out("lfunc(sz:%d)" % sz)
+        else:
+            out("cfunc(sz:%d)" % sz)
+
+        proto = funcproto(fn)
+        name = proto_chunkname(proto)
+        if name:
+            path = lstr2str(name)
+            out("(%s:%d)" % (path, int(proto['firstline'])))
+
+        fnaddr = ptr2int(fn)
+        try:
+            annot = self.obj_annot[fnaddr]
+        except:
+            annot = 0
+        component = annot >> 30
+        idx = annot & ((1<<30) - 1)
+        if component == 1:
+            out (" ->env")
+        elif component == 2:
+            uvname = lj_debug_uvname(proto, idx)
+            out (" ->upval[%d](%s)" % (idx, uvname))
+
+        out("-> ")
+
+    def print_thread(self, thr, g):
+        thraddr = ptr2int(thr)
+        sz = self.baseclass.get_obj_sz(g, thr.cast(typ("GCobj*")))
+        out("thr(s:%d)" % sz)
+
+        try:
+            annot = self.obj_annot[thraddr]
+        except:
+            annot = 0
+
+        component = annot >> 30
+        idx = annot & ((1<<30) - 1)
+
+        if component == 1:
+            out(" ->env")
+        elif component == 2:
+            out(" ->stack[%d]" % idx)
+        elif component == 3:
+            out(" ->frame[%d]" % idx)
+        out("-> ")
+
+    def tv2str(self, tv):
+        if tvisstr(tv):
+            gcs = strV(tv)
+            return lstr2str(gcs)
+        elif tvisint(tv):
+            return "%d" % int(intV(tv))
+        elif tvisnumber(tv):
+            return "%.14g" % float(tv['n'])
+        elif tvisnil(tv):
+            return "nil"
+        elif tvistrue(tv):
+            return "true"
+        elif tvisfalse(tv):
+            return "false"
+        else:
+            return "tv=%#x" % ptr2int(tv)
+
+    def print_tab(self, tab, g):
+        tabaddr = ptr2int(tab)
+        sz = self.baseclass.get_obj_sz(g, tab.cast(typ("GCobj*")))
+        out("Tab(s:%d)" % sz)
+
+        try:
+            annot = self.obj_annot[tabaddr]
+        except:
+            annot = 0
+
+        component = annot >> 30
+        idx = annot & ((1<<30) - 1)
+        if component >= 1 and component <= 4:
+            if component == 1:
+                out(":metatab:")
+            elif component == 2:
+                out("[%d]" % idx)
+            elif component == 3:
+                out("key#%d" % idx)
+            elif component == 4:
+                node_ptr = noderef(tab['node'])
+                n = node_ptr[idx].address
+                s = self.tv2str(n['key'].address)
+                out(".%s" % s)
+
+        out("-> ")
+
+    def print_obj_path(self, g):
+        # print 16 paths at most
+        if self.path_idx == 16:
+            return
+
+        if self.path_idx == 15:
+            self.path_idx = 16
+            out("... more paths ...\n")
+            return
+
+        self.path_idx = self.path_idx  + 1
+        for o in self.gc_path:
+            obj = o.cast(typ("GCobj*"))
+            sz = self.baseclass.get_obj_sz(g, obj)
+            ty = obj['gch']['gct']
+            if ty == ~LJ_TTAB() :
+                self.print_tab(obj.cast(typ("GCtab*")), g)
+            elif ty == ~LJ_TFUNC() :
+                self.print_func(obj.cast(typ("GCfunc*")), g)
+            elif ty == ~LJ_TPROTO() :
+                out("prototy(s:%d), " % sz)
+            elif ty == ~LJ_TTHREAD() :
+                self.print_thread(obj.cast(typ("lua_State*")), g)
+            elif ty == ~LJ_TTRACE() :
+                out("trace(s:%d) -> " % sz)
+            elif ty == ~LJ_TUDATA() :
+                out("user-data (sz:%d) -> " % sz)
+            elif ty == ~LJ_TUPVAL():
+                out("uv(s:%d) -> " % sz)
+            elif ty == ~LJ_TCDATA():
+                out("cdata(s:%d) -> " % sz)
+            elif ty == ~LJ_TSTR():
+                self.print_str(obj.cast(typ("GCstr*")), g)
+            else:
+                out("unknown ty %d (sz %d), " % sz)
+
+        out("end\n")
+
+    def is_intersted_ty(self, ty):
+        if not self.obj_ty:
+            return True
+
+        if ((ty == ~LJ_TSTR() and self.obj_ty == "str") or \
+            (ty == ~LJ_TTAB() and self.obj_ty == "tab") or
+            (ty == ~LJ_TTHREAD() and self.obj_ty == "thr") or
+            (ty == ~LJ_TUPVAL() and self.obj_ty == "upval") or
+            (ty == ~LJ_TFUNC() and self.obj_ty == "func") or
+            (ty == ~LJ_TTRACE() and self.obj_ty == "tr")):
+             return True
+
+        return False
+
+    def dfs(self, o, g):
+        if self.is_visited(o) != 0:
+            return
+        self.set_visited(o)
+
+        # Step 1: Keep track of object-path
+        self.gc_path.append(o)
+
+        # Step 2: In case this object is what we are looking for, print
+        #  the path from GC-ROOT to this object
+        obj = o.cast(typ("GCobj*"))
+        ty = obj['gch']['gct']
+        sz = self.baseclass.get_obj_sz(g, obj)
+        if sz >= self.objsize and self.is_intersted_ty(ty):
+          self.print_obj_path(g)
+
+        # Step 3: Visit the GC object
+        if ty == ~LJ_TSTR():
+            pass
+        elif ty == ~LJ_TTAB() :
+            self.visit_tab(obj['tab'].address, g)
+        elif ty == ~LJ_TFUNC() :
+            self.visit_func(obj['fn'].address, g)
+        elif ty == ~LJ_TPROTO() :
+            self.visit_proto(obj['pt'].address, g)
+        elif ty == ~LJ_TTHREAD() :
+            self.visit_thread(obj['th'].address, g)
+        elif ty == ~LJ_TTRACE():
+            self.visit_trace(o.cast(typ('GCtrace*')) ,g)
+        elif ty == ~LJ_TUDATA() or ty == ~LJ_TUPVAL() or ty == ~LJ_TCDATA():
+            pass
+        else:
+            raise gdb.GdbError("unknown ty %d" % ty)
+
+        # step 4: Keep track of object-path
+        self.gc_path.pop()
+
+    def visit_tval(self, tv, g):
+        if (tvisgcv(tv)):
+           self.dfs(gcval(tv), g)
+
+    def visit_thread(self, thr, g) :
+        thraddr = ptr2int(thr)
+
+        # Step 1: Visit the env table
+        self.obj_annot[thraddr] = 1<<30
+        self.dfs(tabref(thr['env']), g)
+
+        # Step 2: Iterate all TValues in the stack; if the TValue being visited
+        # holds a reference to a GC object, DFS forward from the object.
+        #
+        iter = tvref(thr['stack']) + 1
+        top = thr['top']
+        idx = 1
+        while iter < top:
+            self.obj_annot[thraddr] = ((2<<30) | idx)
+            self.visit_tval(iter, g)
+            idx = idx + 1
+            iter = iter + 1
+
+        # Step 3: Go through all functions in the call-chain.
+        #
+        # Question: How to visit those function which were created before,
+        #  but are not showing up on the call-chain?
+        #
+        frame = thr['base'] - 1 # starting from current function
+        bottom = tvref(thr['stack'])
+        idx = 0;
+        while frame > bottom:
+            fn = frame_func(frame)
+            self.obj_annot[thraddr] = ((3<<30) | idx)
+            self.dfs(fn, g)
+            frame = frame_prev(frame)
+            idx = idx + 1
+
+        del self.obj_annot[thraddr]
+
+    def visit_tab(self, tab, g) :
+        tabaddr = ptr2int(tab)
+
+        mt = tabref(tab['metatable'])
+        if mt != 0:
+            self.obj_annot[tabaddr] = 1<<30
+            self.dfs(mt, g)
+
+        # TODO: check if key and/or value is weak
+
+        # Loop over elements of array part
+        for i in xrange(tab['asize']):
+            tv = tvref(tab['array'])[i].address
+            if tvisgcv(tv):
+                self.obj_annot[tabaddr] = ((2<<30)|i)
+                self.dfs(gcval(tv), g)
+
+        # Loop over elements of hash part
+        hmask = tab['hmask']
+        if hmask > 1:
+            node_ptr = noderef(tab['node'])
+            for i in range(hmask + 1):
+                n = node_ptr[i].address
+                if not tvisnil(n['val'].address):
+                    tv = n['key']
+                    if tvisgcv(tv):
+                        self.obj_annot[tabaddr] = ((3<<30)|i)
+                        self.dfs(gcval(tv), g)
+
+                    tv = n['val']
+                    if tvisgcv(tv):
+                        self.obj_annot[tabaddr] = ((4<<30)|i)
+                        self.dfs(gcval(tv), g)
+
+        # Remove the annotation
+        try:
+            del self.obj_annot[tabaddr]
+        except:
+            pass
+
+    def visit_func(self, fn, g):
+        fnaddr = ptr2int(fn)
+        self.obj_annot[fnaddr] = 1<<30
+        self.dfs(tabref(fn['c']['env']), g)
+        if isluafunc(fn):
+            self.dfs(funcproto(fn), g)
+            uvptr = fn['l']['uvptr']
+            for i in range(fn['l']['nupvalues']):
+                self.obj_annot[fnaddr] = (2<<30) | i
+                self.dfs(gcref(uvptr[i])['uv'].address, g)
+        else:
+            uvptr = fn['c']['upvalue'][0].address
+            for i in range(fn['c']['nupvalues']):
+                self.obj_annot[fnaddr] = (2<<30) | i
+                self.visit_tval(uvptr[i], g)
+
+        del self.obj_annot[fnaddr]
+
+    def visit_trace(self, tr, g):
+        ref = tr['nk']
+        while ref < REF_BIAS - 3:
+            ir = tr['ir'][ref].address
+            if ir['o'] == IR_KGC:
+                self.dfs(obj2gco(ir_kgc(ir)), g)
+            ref = ref + 1
+
+        t = tr['link']
+        if t != 0:
+            self.dfs(obj2gco(traceref(G2J(g), t)), g)
+
+        t = tr['nextroot']
+        if t != 0:
+            self.dfs(obj2gco(traceref(G2J(g)), t), g)
+
+        t = tr['nextside']
+        if t != 0:
+            self.dfs(obj2gco(traceref(G2J(g)), t), g)
+
+    def visit_proto(self, pt, g):
+        # Step 1: visit chunk name
+        self.dfs(proto_chunkname(pt), g)
+
+        # Step 2: (TODO) viist proto_kgc()s'
+
+        # Step 3: visit traces
+        trno = pt['trace']
+        if trno != 0:
+            tr = obj2gco(traceref(G2J(g), trno))
+            self.dfs(tr, g)
+
+lgcpath()
