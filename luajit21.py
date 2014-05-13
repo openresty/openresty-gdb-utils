@@ -2519,13 +2519,12 @@ class lgcpath(lgcstat):
 
     def print_str(self, str, g):
         len = str['len']
-        sz = typ("GCstr").sizeof + len + 1
-        out("->str(sz:%d \"" % sz)
+        out("->str \"")
 
         # print the content
         p = str.cast(typ("char*"))
         p += typ("GCstr").sizeof
-        printlen = min(len, 32)
+        printlen = min(len, 48)
         for i in range(printlen):
             #if i in range(32, 126):
             c = p[i]
@@ -2588,7 +2587,7 @@ class lgcpath(lgcstat):
     def tv2str(self, tv):
         if tvisstr(tv):
             gcs = strV(tv)
-            return lstr2str(gcs)
+            return '"' + lstr2str(gcs) + '"'
         elif tvisint(tv):
             return "%d" % int(intV(tv))
         elif tvisnumber(tv):
@@ -2624,7 +2623,7 @@ class lgcpath(lgcstat):
                 node_ptr = noderef(tab['node'])
                 n = node_ptr[idx].address
                 s = self.tv2str(n['key'].address)
-                out("[\"%s\"]" % s)
+                out("[%s]" % s)
 
         out(" ")
 
@@ -2634,7 +2633,7 @@ class lgcpath(lgcstat):
             path = lstr2str(name) 
             out("proto(%s:%d)" % (path, int(proto['firstline'])))
         else:
-            out("proto")
+            out("proto ")
 
     def print_obj_path(self, g):
         # print 16 paths at most
@@ -2700,6 +2699,9 @@ class lgcpath(lgcstat):
         return False
 
     def dfs(self, o, g):
+        if self.path_idx == 16:
+            return
+
         if self.is_visited(o) != 0:
             return
         self.set_visited(o)
