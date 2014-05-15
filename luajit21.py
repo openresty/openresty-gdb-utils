@@ -2562,6 +2562,7 @@ class lgcpath(lgcstat):
         self.path_idx = 0
         self.obj_size = 0
         self.obj_annot = {}
+        self.path_root = 0
 
     def invoke (self, args, from_tty):
         argv = gdb.string_to_argv(args)
@@ -2581,23 +2582,33 @@ class lgcpath(lgcstat):
         if not L:
             raise gdb.GdbError("not able to get global_L")
 
+        # step 0: Init
         self.init_datamembers()
         # Otherwise, get_obj_sz() doesn't work as expected
         self.baseclass.init_sizeof()
-
-        g = G(L)
-        thr = gcref(g['mainthref'])['th'].address
-
         self.visited.clear()
-        self.dfs(thr, g)
+
+        # step 1: DFS registry 
+        g = G(L)
+        self.path_root = 1
         self.visit_tval(g['registrytv'], g)
+
+        # step 2: DFS main thread
+        self.path_root = 2
+        thr = gcref(g['mainthref'])['th'].address
+        self.dfs(thr, g)
+
+        # step 3: DFS env
+        self.path_root = 3
         self.dfs(gcref(thr['env']), g)
 
+        # step 4: dfs GCROOTs
+        self.path_root = 4
         gcroot = g['gcroot']
         for idx in range(GCROOT_MAX):
             ref = gcroot[idx]
             if newval("int", ref) != 0:
-                self.dfs(gcref(ref), self.objsize)
+                self.dfs(gcref(ref), g)
 
         if self.path_idx == 0:
             out("No GC object of size %d\n" % self.objsize)
@@ -2614,13 +2625,12 @@ class lgcpath(lgcstat):
 
     def print_str(self, str, g):
         len = str['len']
-        sz = typ("GCstr").sizeof + len + 1
-        out("str(sz:%d \"" % sz)
+        out("->str \"")
 
         # print the content
         p = str.cast(typ("char*"))
         p += typ("GCstr").sizeof
-        printlen = min(len, 32)
+        printlen = min(len, 48)
         for i in range(printlen):
             #if i in range(32, 126):
             c = p[i]
@@ -2632,20 +2642,18 @@ class lgcpath(lgcstat):
         if printlen < len:
             out(" ...")
 
-        out("\") -> ")
+        out("\") ")
 
     def print_func(self, fn, g):
-        sz = self.baseclass.get_obj_sz(g, fn.cast(typ("GCobj*")))
         if isluafunc(fn):
-            out("lfunc(sz:%d)" % sz)
+            out("->lfunc")
+            proto = funcproto(fn)
+            name = proto_chunkname(proto)
+            if name:
+                path = lstr2str(name)
+                out("(%s:%d)" % (path, int(proto['firstline'])))
         else:
-            out("cfunc(sz:%d)" % sz)
-
-        proto = funcproto(fn)
-        name = proto_chunkname(proto)
-        if name:
-            path = lstr2str(name)
-            out("(%s:%d)" % (path, int(proto['firstline'])))
+            out("->cfunc")
 
         fnaddr = ptr2int(fn)
         try:
@@ -2660,12 +2668,11 @@ class lgcpath(lgcstat):
             uvname = lj_debug_uvname(proto, idx)
             out (" ->upval[%d](%s)" % (idx, uvname))
 
-        out("-> ")
+        out(" ")
 
     def print_thread(self, thr, g):
         thraddr = ptr2int(thr)
-        sz = self.baseclass.get_obj_sz(g, thr.cast(typ("GCobj*")))
-        out("thr(s:%d)" % sz)
+        out("->thr(ptr:%#x)" % thraddr)
 
         try:
             annot = self.obj_annot[thraddr]
@@ -2681,12 +2688,12 @@ class lgcpath(lgcstat):
             out(" ->stack[%d]" % idx)
         elif component == 3:
             out(" ->frame[%d]" % idx)
-        out("-> ")
+        out(" ")
 
     def tv2str(self, tv):
         if tvisstr(tv):
             gcs = strV(tv)
-            return lstr2str(gcs)
+            return '"' + lstr2str(gcs) + '"'
         elif tvisint(tv):
             return "%d" % int(intV(tv))
         elif tvisnumber(tv):
@@ -2702,8 +2709,7 @@ class lgcpath(lgcstat):
 
     def print_tab(self, tab, g):
         tabaddr = ptr2int(tab)
-        sz = self.baseclass.get_obj_sz(g, tab.cast(typ("GCobj*")))
-        out("Tab(s:%d)" % sz)
+        out("->Tab")
 
         try:
             annot = self.obj_annot[tabaddr]
@@ -2718,14 +2724,22 @@ class lgcpath(lgcstat):
             elif component == 2:
                 out("[%d]" % idx)
             elif component == 3:
-                out("key#%d" % idx)
+                out("-key#%d" % idx)
             elif component == 4:
                 node_ptr = noderef(tab['node'])
                 n = node_ptr[idx].address
                 s = self.tv2str(n['key'].address)
-                out(".%s" % s)
+                out("[%s]" % s)
 
-        out("-> ")
+        out(" ")
+
+    def print_proto(self, proto, g):
+        name = proto_chunkname(proto)
+        if name:
+            path = lstr2str(name) 
+            out("proto(%s:%d)" % (path, int(proto['firstline'])))
+        else:
+            out("proto ")
 
     def print_obj_path(self, g):
         # print 16 paths at most
@@ -2737,33 +2751,44 @@ class lgcpath(lgcstat):
             out("... more paths ...\n")
             return
 
+        out ("path %03d:" % self.path_idx)
+        if self.path_root == 1:
+            out("[registry] ")
+        elif self.path_root == 2:
+            out("[main-thr] ")
+        elif self.path_root == 3:
+            out("[env] ")
+        elif self.path_root == 4:
+            out("[gcroots] ")
+
         self.path_idx = self.path_idx  + 1
         for o in self.gc_path:
             obj = o.cast(typ("GCobj*"))
-            sz = self.baseclass.get_obj_sz(g, obj)
             ty = obj['gch']['gct']
             if ty == ~LJ_TTAB() :
                 self.print_tab(obj.cast(typ("GCtab*")), g)
             elif ty == ~LJ_TFUNC() :
                 self.print_func(obj.cast(typ("GCfunc*")), g)
             elif ty == ~LJ_TPROTO() :
-                out("prototy(s:%d), " % sz)
+                self.print_proto(obj.cast(typ("GCproto*")), g)
             elif ty == ~LJ_TTHREAD() :
                 self.print_thread(obj.cast(typ("lua_State*")), g)
             elif ty == ~LJ_TTRACE() :
-                out("trace(s:%d) -> " % sz)
+                out("-> trace(id:%d) " % obj.cast(typ("GCtrace*"))['traceno'])
             elif ty == ~LJ_TUDATA() :
-                out("user-data (sz:%d) -> " % sz)
+                out("-> user-data ")
             elif ty == ~LJ_TUPVAL():
-                out("uv(s:%d) -> " % sz)
+                out("-> uv ")
             elif ty == ~LJ_TCDATA():
-                out("cdata(s:%d) -> " % sz)
+                out("-> cdata ")
             elif ty == ~LJ_TSTR():
                 self.print_str(obj.cast(typ("GCstr*")), g)
             else:
-                out("unknown ty %d (sz %d), " % sz)
+                out(" unknown ty obj")
 
-        out("end\n")
+        # print the size of last GC object in the path
+        sz = self.get_obj_sz(g, self.gc_path[-1].cast(typ("GCobj*")))
+        out("sz:%d ->END\n" % sz)
 
     def is_intersted_ty(self, ty):
         if not self.obj_ty:
@@ -2780,6 +2805,9 @@ class lgcpath(lgcstat):
         return False
 
     def dfs(self, o, g):
+        if self.path_idx == 16:
+            return
+
         if self.is_visited(o) != 0:
             return
         self.set_visited(o)
@@ -2899,7 +2927,6 @@ class lgcpath(lgcstat):
     def visit_func(self, fn, g):
         fnaddr = ptr2int(fn)
         self.obj_annot[fnaddr] = 1<<30
-        self.dfs(tabref(fn['c']['env']), g)
         if isluafunc(fn):
             self.dfs(funcproto(fn), g)
             uvptr = fn['l']['uvptr']
@@ -2912,27 +2939,29 @@ class lgcpath(lgcstat):
                 self.obj_annot[fnaddr] = (2<<30) | i
                 self.visit_tval(uvptr[i], g)
 
+        self.dfs(tabref(fn['c']['env']), g)
         del self.obj_annot[fnaddr]
 
     def visit_trace(self, tr, g):
-        ref = tr['nk']
-        while ref < REF_BIAS - 3:
-            ir = tr['ir'][ref].address
-            if ir['o'] == IR_KGC:
-                self.dfs(obj2gco(ir_kgc(ir)), g)
-            ref = ref + 1
-
-        t = tr['link']
-        if t != 0:
-            self.dfs(obj2gco(traceref(G2J(g), t)), g)
-
-        t = tr['nextroot']
-        if t != 0:
-            self.dfs(obj2gco(traceref(G2J(g)), t), g)
-
-        t = tr['nextside']
-        if t != 0:
-            self.dfs(obj2gco(traceref(G2J(g)), t), g)
+        pass
+#        ref = tr['nk']
+#        while ref < REF_BIAS - 3:
+#            ir = tr['ir'][ref].address
+#            if ir['o'] == IR_KGC:
+#                self.dfs(obj2gco(ir_kgc(ir)), g)
+#            ref = ref + 1
+#
+#        t = tr['link']
+#        if t != 0:
+#            self.dfs(obj2gco(traceref(G2J(g), t)), g)
+#
+#        t = tr['nextroot']
+#        if t != 0:
+#            self.dfs(obj2gco(traceref(G2J(g), t)), g)
+#
+#        t = tr['nextside']
+#        if t != 0:
+#            self.dfs(obj2gco(traceref(G2J(g), t)), g)
 
     def visit_proto(self, pt, g):
         # Step 1: visit chunk name
