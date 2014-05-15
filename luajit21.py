@@ -60,6 +60,11 @@ def LJ_TISNUM():
 def LJ_TISGCV():
     return newval("unsigned int", 1 + ~4)
 
+BC_RETM = 73
+BC_RET = 74
+BC_RET0 = 75
+BC_RET1 = 76
+
 FRAME_LUA = 0
 FRAME_C = 1
 FRAME_CONT = 2
@@ -1002,6 +1007,14 @@ Usage: lval tv"""
             out("bytecode range: %#x, %#x\n" % (begin, end))
             return
 
+        if typstr == "GCfunc *":
+            print("%s" % fmtfunc(o))
+            if isluafunc(o):
+                pt = funcproto(o)
+                print("proto: (GCproto*)%#x\n" % ptr2int(pt))
+
+            return
+
         if typstr == "GCtab *":
             dump_table(o)
             return
@@ -1287,6 +1300,13 @@ Usage: ltrace [traceno]"""
 
 ltrace()
 
+def bc_op(i):
+    return (i & 0xff).cast(typ("BCOp"))
+
+def bc_isret(op):
+    op = int(op)
+    return (op == BC_RETM or op == BC_RET or op == BC_RET0 or op == BC_RET1)
+
 def locate_pc(pc):
     L = get_cur_L()
     g = G(L)
@@ -1306,8 +1326,36 @@ def locate_pc(pc):
                     line = lj_debug_line(pt, pos)
                     out("source line: %s:%d\n" % (path, line))
                     out("proto first line: %d\n" % int(pt['firstline']))
+                    return
 
         p = o['gch']['nextgc'].address
+
+    print("isret: %d\n" % int(bc_isret(bc_op(pc[-1]))))
+
+    if bc_isret(bc_op(pc[-1])):
+        p = g['gc']['root'].address
+        while p:
+            o = gcref(p)
+            if not o:
+                break
+            if o['gch']['gct'] == ~LJ_TPROTO():
+                pt = o['pt'].address
+                pos = proto_bcpos(pt, pc) - 1
+                if pos > pt['sizebc']:
+                    T = ((pc - 1).cast(typ("char*")) - \
+                            typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
+                    pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+
+                    out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
+                    name = proto_chunkname(pt)
+                    if name:
+                        path = lstr2str(name)
+                        line = lj_debug_line(pt, pos)
+                        out("source line: %s:%d\n" % (path, line))
+                        out("proto first line: %d\n" % int(pt['firstline']))
+                        return
+
+            p = o['gch']['nextgc'].address
 
 class lpc(gdb.Command):
     """This command prints out the source line position for the current pc.
@@ -1366,6 +1414,64 @@ Usage: lringbuf"""
                         raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" % (int(start), int(end), int(rblen)))
 
 lringbuf()
+
+class ltracelogs(gdb.Command):
+    """This command prints out agentzh's trace logs in LuaJIT core
+Usage: ltracelogs"""
+
+    def __init__ (self):
+        super (ltracelogs, self).__init__("ltracelogs", gdb.COMMAND_USER)
+
+    def dump_event(self, e):
+        event = e["event"]
+        if event == 0:
+            # trace entry:
+            out("->%d L=%#x pc=%#x fn=%#x\n" \
+                % (int(e["traceno"]), ptr2int(e["thread"]),
+                   ptr2int(e["ins"]), ptr2int(e["fn"])))
+
+        elif event == 1:
+            # trace exit
+            out("<-%d L=%#x direct_exit=%d exitno=%d pc=%#x fn=%#x\n" \
+                % (int(e["traceno"]), ptr2int(e["thread"]),
+                   int(e["directexit"]),
+                   int(e["exitno"]), ptr2int(e["ins"]), ptr2int(e["fn"])))
+
+        else:
+            # trace start
+            out("start record %d: L=%#x pc=%#x fn=%#x\n" \
+                % (int(e["traceno"]), ptr2int(e["thread"]),
+                   ptr2int(e["ins"]), ptr2int(e["fn"])))
+
+    def invoke (self, args, from_tty):
+        rb_var = gdb.lookup_symbol("lj_trace_events")[0]
+        if rb_var:
+            rb = rb_var.value()
+            start = gdb.lookup_symbol("rb_start")[0].value()
+            end = gdb.lookup_symbol("rb_end")[0].value()
+            if start < end:
+                i = start
+                while i < end:
+                    self.dump_event(rb[i])
+                    i += 1
+            else:
+                rblen = gdb.lookup_symbol("rb_full")[0].value()
+                if rblen:
+                    i = start
+                    while i < rblen:
+                        self.dump_event(rb[i])
+                        i += 1
+                    i = 0
+                    while i < end:
+                        self.dump_event(rb[i])
+                        i += 1
+                else:
+                    if start == 0 and end == 0:
+                        out("<empty>\n")
+                    else:
+                        raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" % (int(start), int(end), int(rblen)))
+
+ltracelogs()
 
 REF_BIAS = 0x8000
 
