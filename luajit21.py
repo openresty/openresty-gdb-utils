@@ -1445,31 +1445,34 @@ Usage: ltracelogs"""
 
     def invoke (self, args, from_tty):
         rb_var = gdb.lookup_symbol("lj_trace_events")[0]
-        if rb_var:
-            rb = rb_var.value()
-            start = gdb.lookup_symbol("rb_start")[0].value()
-            end = gdb.lookup_symbol("rb_end")[0].value()
-            if start < end:
+        if not rb_var:
+            raise gdb.GdbError("no global variable lj_trace_events found. you lack agentzh's patch for LuaJIT2: http://agentzh.org/misc/luajit/v2.1-trace-logs.patch")
+
+        rb = rb_var.value()
+        start = gdb.lookup_symbol("rb_start")[0].value()
+        end = gdb.lookup_symbol("rb_end")[0].value()
+        if start < end:
+            i = start
+            while i < end:
+                self.dump_event(rb[i])
+                i += 1
+        else:
+            rblen = gdb.lookup_symbol("rb_full")[0].value()
+            if rblen:
                 i = start
+                while i < rblen:
+                    self.dump_event(rb[i])
+                    i += 1
+                i = 0
                 while i < end:
                     self.dump_event(rb[i])
                     i += 1
             else:
-                rblen = gdb.lookup_symbol("rb_full")[0].value()
-                if rblen:
-                    i = start
-                    while i < rblen:
-                        self.dump_event(rb[i])
-                        i += 1
-                    i = 0
-                    while i < end:
-                        self.dump_event(rb[i])
-                        i += 1
+                if start == 0 and end == 0:
+                    out("<empty>\n")
                 else:
-                    if start == 0 and end == 0:
-                        out("<empty>\n")
-                    else:
-                        raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" % (int(start), int(end), int(rblen)))
+                    raise gdb.GdbError("bad thing happened: start=%d, end=%d, full=%d" \
+                        % (int(start), int(end), int(rblen)))
 
 ltracelogs()
 
