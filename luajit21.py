@@ -1002,16 +1002,19 @@ Usage: lval tv"""
             if name:
                 path = lstr2str(name)
                 out("proto definition: %s:%d\n" % (path, int(o['firstline'])))
-            begin = ptr2int(proto_bc(o))
-            end = ptr2int(begin + o['sizebc'])
-            out("bytecode range: %#x, %#x\n" % (begin, end))
+            begin = proto_bc(o)
+            end = begin + o['sizebc']
+            out("bytecode range: %#x %#x\n" % (ptr2int(begin), ptr2int(end)))
             return
 
         if typstr == "GCfunc *":
-            print("%s" % fmtfunc(o))
+            print("proto first line: %s" % fmtfunc(o))
             if isluafunc(o):
                 pt = funcproto(o)
-                print("proto: (GCproto*)%#x\n" % ptr2int(pt))
+                print("(GCproto*)%#x" % ptr2int(pt))
+                startpc = (pt.cast(typ("char*")) + typ("GCproto").sizeof).cast(typ("BCIns*"))
+                endpc = startpc + pt['sizebc']
+                print("proto bc pointer range: %#x %#x\n" % (startpc, endpc))
 
             return
 
@@ -2183,6 +2186,22 @@ def dumpcallfunc(T, ins):
         out("%04d (" % ins)
     return ctype
 
+def pc2loc(pt, pc):
+    line = int(lj_debug_line(pt, proto_bcpos(pt, pc) if pc else 0))
+    name = proto_chunkname(pt)
+    if name:
+        path = lstr2str(name)
+        if path[0] == '@':
+            i = len(path) - 1
+            while i > 0:
+                if path[i] == '/' or path[i] == '\\':
+                    path = path[i+1:]
+                    break
+                i -= 1
+        return "%s:%d" % (path, line)
+    else:
+        return "?:%d" % line
+
 class lir(gdb.Command):
     """This command prints out all the IR code for the trace specified by its number.
 Usage: lir traceno"""
@@ -2979,3 +2998,166 @@ class lgcpath(lgcstat):
             self.dfs(tr, g)
 
 lgcpath()
+
+lj_bc_mode = None
+
+bcnames = "ISLT  ISGE  ISLE  ISGT  ISEQV ISNEV ISEQS ISNES ISEQN ISNEN ISEQP ISNEP ISTC  ISFC  IST   ISF   ISTYPEISNUM MOV   NOT   UNM   LEN   ADDVN SUBVN MULVN DIVVN MODVN ADDNV SUBNV MULNV DIVNV MODNV ADDVV SUBVV MULVV DIVVV MODVV POW   CAT   KSTR  KCDATAKSHORTKNUM  KPRI  KNIL  UGET  USETV USETS USETN USETP UCLO  FNEW  TNEW  TDUP  GGET  GSET  TGETV TGETS TGETB TGETR TSETV TSETS TSETB TSETM TSETR CALLM CALL  CALLMTCALLT ITERC ITERN VARG  ISNEXTRETM  RET   RET0  RET1  FORI  JFORI FORL  IFORL JFORL ITERL IITERLJITERLLOOP  ILOOP JLOOP JMP   FUNCF IFUNCFJFUNCFFUNCV IFUNCVJFUNCVFUNCC FUNCCW"
+
+def funcbc(pc):
+    ins = pc[0]
+    op = bc_op(ins)
+    global lj_bc_mode
+    if not lj_bc_mode:
+        sym = gdb.lookup_symbol("lj_bc_mode")[0]
+        if not sym:
+            raise gdb.GdbError("global symbol lj_bc_mode not found")
+        lj_bc_mode = sym.value()
+
+    return ins, lj_bc_mode[op]
+
+def ctlsub(s):
+    return s.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+
+def pc2proto(pc):
+    i = 0
+    while pc and i < 1000000:
+        ins = pc[-i]
+        #print("ins: %d" % int(ins))
+        oidx = int(6 * (ins & 0xff))
+        op = bcnames[oidx:oidx+6]
+        print("op: %s" % op)
+        if op == "FUNCF " or op == "FUNCV " or op == "JFUNCF" \
+           or op == "JFUNCV":
+            return ((pc - i).cast(typ("char*")) - typ("GCproto").sizeof).cast(typ("GCproto*"))
+        i += 1
+    return None
+
+def proto_kgc(pt, idx):
+    return gcref(mref(pt['k'], "GCRef")[idx])
+
+def proto_knumtv(pt, idx):
+    return gcval(mref(pt['k'], "TValue") + idx)
+
+def funck(pt, idx):
+    #print "idx = %d, sizekn=%d, sizekgc=%d" % (idx, pt['sizekn'], \
+            #pt['sizekgc'])
+    if idx >= 0:
+        if idx < pt['sizekn']:
+            return proto_knumtv(pt, idx)
+    else:
+        if ~idx < pt['sizekgc']:
+            return proto_kgc(pt, idx)
+    return None
+
+def funcuvname(pt, idx):
+    if idx < pt['sizeuv']:
+        return lj_debug_uvname(pt, idx)
+    return None
+
+def bcline(func, pc, prefix):
+    ins, m = funcbc(pc)
+    if not ins:
+        #print "no ins!"
+        return None
+
+    ma, mb, mc = m & 7, m & (15*8), m & (15*128)
+    a = (ins >> 8) & 0xff
+    oidx = int(6 * (ins & 0xff))
+    op = bcnames[oidx:oidx+6]
+
+    s = "%04d %s %-6s %3s " % (proto_bcpos(func, pc), prefix or "  ", \
+            op, "" if ma == 0 else a)
+    d = ins >> 16
+    #print "1: d = %d" % d
+    if mc == 13*128:  # BCMjump
+        return "%s=> %04d\n" % (s, int(proto_bcpos(func, pc)+d-0x7fff))
+    if mb != 0:
+        d = d & 0xff
+    elif mc == 0:
+        return s + "\n"
+
+    #print "2: d = %d" % d
+
+    kc = None
+    if mc == 10*128:  # BCMstr
+        k = funck(func, -int(d)-1)
+        #print(type(k))
+        kc = lstr2str(k.cast(typ("GCstr*")))
+        kc = ctlsub(kc)
+        if len(kc) > 40:
+            kc = '"%.40s"~' % kc
+        else:
+            kc = '"%s"' % kc
+        #print("%s" % kc)
+    elif mc == 9*128:  # BCMnum
+        kc = funck(func, d)
+        if op == "TSETM ":
+            kc = kc - 2**52
+    elif mc == 12*128:  # BCMfunc
+        pt = funck(func, -int(d)-1).cast(typ("GCproto*"))
+        kc = pc2loc(pt, None)
+    elif mc == 5*128:  # BCMuv
+        kc = funcuvname(func, d)
+    if ma == 5:   # BCMuv
+        ka = funcuvname(func, a)
+        if kc:
+            kc = ka + " ; " + kc
+        else:
+            kc = ka
+    if mb != 0:
+        b = ins >> 24
+        if kc:
+            return "%s%3d %3d  ; %s\n" % (s, b, d, kc)
+        return "%s%3d %3d\n" % (s, b, d)
+    if kc:
+        return "%s%3d      ; %s\n" % (s, d, kc)
+    if mc == 7*128 and d > 32767:  # BCMlits
+        d = d - 65536
+    return "%s%3d\n" % (s, d)
+
+class lbc(gdb.Command):
+    """This command prints out the LuaJIT bytecode in the PC range specified by the user.
+Usage: lbc <from> <to>"""
+
+    def __init__ (self):
+        super (lbc, self).__init__("lbc", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 2:
+            raise gdb.GdbError("usage: lbc <from> <to>")
+
+        fr = gdb.parse_and_eval(argv[0]).cast(typ("BCIns*"))
+        to = gdb.parse_and_eval(argv[1]).cast(typ("BCIns*"))
+
+        pt = pc2proto(fr)
+        if not pt:
+            raise gdb.GdbError("failed to find the GCproto context")
+        end = fr + pt['sizebc']
+
+        out("(GCproto*)%#x\n" % ptr2int(pt))
+        out("-- BEGIN BYTECODE -- %s\n" % pc2loc(pt, fr))
+
+        if fr > to:
+            raise gdb.GdbError("error: <from> is greater than <to>")
+
+        pc = fr
+        while pc < to:
+            #print "pc=%#x, to=%#x" % (ptr2int(pc), ptr2int(to))
+            if pc == end:
+                out("-------- END PROTO ---------\n")
+
+            line = bcline(pt, pc, None)
+            if not line:
+                #print("not line")
+                break
+            out("%s" % line)
+            pc += 1
+
+        if pc == to:
+            out("-- END BYTECODE -- %s\n" % pc2loc(pt, to))
+        else:
+            out("-- ABROT BYTECODE -- %s\n" % pc2loc(pt, pc - 1))
+
+lbc()
