@@ -1008,13 +1008,13 @@ Usage: lval tv"""
             return
 
         if typstr == "GCfunc *":
-            print("proto first line: %s" % fmtfunc(o))
+            out("proto first line: %s\n" % fmtfunc(o))
             if isluafunc(o):
                 pt = funcproto(o)
-                print("(GCproto*)%#x" % ptr2int(pt))
+                out("(GCproto*)%#x\n" % ptr2int(pt))
                 startpc = (pt.cast(typ("char*")) + typ("GCproto").sizeof).cast(typ("BCIns*"))
                 endpc = startpc + pt['sizebc']
-                print("proto bc pointer range: %#x %#x\n" % (startpc, endpc))
+                out("proto bc pointer range: %#x %#x\n" % (startpc, endpc))
 
             return
 
@@ -1333,32 +1333,24 @@ def locate_pc(pc):
 
         p = o['gch']['nextgc'].address
 
-    print("isret: %d\n" % int(bc_isret(bc_op(pc[-1]))))
+    #print("isret: %d\n" % int(bc_isret(bc_op(pc[-1]))))
 
-    if bc_isret(bc_op(pc[-1])):
-        p = g['gc']['root'].address
-        while p:
-            o = gcref(p)
-            if not o:
-                break
-            if o['gch']['gct'] == ~LJ_TPROTO():
-                pt = o['pt'].address
-                pos = proto_bcpos(pt, pc) - 1
-                if pos > pt['sizebc']:
-                    T = ((pc - 1).cast(typ("char*")) - \
-                            typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
-                    pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+    out("no direct match. trying harder...\n")
 
-                    out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
-                    name = proto_chunkname(pt)
-                    if name:
-                        path = lstr2str(name)
-                        line = lj_debug_line(pt, pos)
-                        out("source line: %s:%d\n" % (path, line))
-                        out("proto first line: %d\n" % int(pt['firstline']))
-                        return
+    pt = pc2proto(pc)
+    if not pt:
+        out("No matching proto found")
+        return
 
-            p = o['gch']['nextgc'].address
+    out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
+    pos = proto_bcpos(pt, pc) - 1
+    name = proto_chunkname(pt)
+    if name:
+        path = lstr2str(name)
+        line = lj_debug_line(pt, pos)
+        out("source line: %s:%d\n" % (path, line))
+        out("proto first line: %d\n" % int(pt['firstline']))
+        return
 
 class lpc(gdb.Command):
     """This command prints out the source line position for the current pc.
@@ -3025,7 +3017,7 @@ def pc2proto(pc):
         #print("ins: %d" % int(ins))
         oidx = int(6 * (ins & 0xff))
         op = bcnames[oidx:oidx+6]
-        print("op: %s" % op)
+        #print("op: %s" % op)
         if op == "FUNCF " or op == "FUNCV " or op == "JFUNCF" \
            or op == "JFUNCV":
             return ((pc - i).cast(typ("char*")) - typ("GCproto").sizeof).cast(typ("GCproto*"))
