@@ -1327,6 +1327,7 @@ def locate_pc(pc):
                 if name:
                     path = lstr2str(name)
                     line = lj_debug_line(pt, pos)
+                    out("BC pos: %d\n" % int(pos))
                     out("source line: %s:%d\n" % (path, line))
                     out("proto first line: %d\n" % int(pt['firstline']))
                     return
@@ -1348,6 +1349,7 @@ def locate_pc(pc):
     if name:
         path = lstr2str(name)
         line = lj_debug_line(pt, pos)
+        out("BC pos: %d\n" % int(pos))
         out("source line: %s:%d\n" % (path, line))
         out("proto first line: %d\n" % int(pt['firstline']))
         return
