@@ -894,8 +894,8 @@ def dump_table(t):
     for i in xrange(nhmask+1):
         nn = node[i]
         k = nn['key']
-        v = nn['val']
-        if not tvisnil(k) and not tvisnil(v):
+        v = nn['val'].address
+        if not tvisnil(v):
             out("\tkey:\n")
             dump_tvalue(k)
             out("\tvalue:\n")
