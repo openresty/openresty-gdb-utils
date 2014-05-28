@@ -1191,8 +1191,11 @@ def threadV(o):
 def tabref(r):
     return gcref(r)['tab'].address
 
+def funcV(o):
+    return gcval(o)['fn'].address
+
 class lfenv(gdb.Command):
-    """This command prints out all the upvalues in the GCfunc* pointer specified.
+    """This command prints out the environment table in the input lua object
 Usage: lfenv tv"""
 
     def __init__ (self):
@@ -1212,10 +1215,19 @@ Usage: lfenv tv"""
             out("environment table: (GCtab*)0x%x\n" % ptr2int(tab))
             return
 
+        if typstr == "GCfunc *":
+            t = tabref(o['c']['env'])
+            out("(GCtab*)%#x\n" % ptr2int(t))
+            return
+
         if tvisthread(o):
             o = threadV(o)
             tab = tabref(threadV(o['env']))
             out("environment table: (GCtab*)0x%x\n" % ptr2int(tab))
+
+        elif tvisfunc(o):
+            t = tabref(funcV(o)['c']['env'])
+            out("(GCtab*)%#x\n" % ptr2int(t))
 
         else:
             out("TODO")
