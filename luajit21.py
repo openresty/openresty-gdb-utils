@@ -288,7 +288,10 @@ def debug_framepc(L, T, fn, pt, nextframe):
         T = ((ins - 1).cast(typ("char*")) - \
                 typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
         #print("T: %d" % int(T['traceno']))
-        pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+        try:
+            pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+        except:
+            return NO_BCPOS
     return pos
 
 def debug_frameline(L, T, fn, pt, nextframe):
@@ -914,7 +917,11 @@ def dump_tvalue(o, deep=False):
 
     elif tvisstr(o):
         gcs = strV(o)
-        out("\t\tstring: \"%s\" (len %d)\n" % (lstr2str(gcs), int(gcs['len'])))
+        try:
+             out("\t\tstring: \"%s\" (len %d)\n" % (lstr2str(gcs), \
+                 int(gcs['len'])))
+        except:
+               pass
 
     elif tviscdata(o):
         mL = get_global_L()
