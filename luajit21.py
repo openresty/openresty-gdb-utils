@@ -3174,3 +3174,28 @@ Usage: lbc <from> <to>"""
             out("-- ABROT BYTECODE -- %s\n" % pc2loc(pt, pc - 1))
 
 lbc()
+
+
+class lcq(gdb.Command):
+    """This command checks the expiration times in the "cache_queue" queue with the current time (in seconds) specified
+Usage: lcq <from> <to>"""
+
+    def __init__ (self):
+        super (lcq, self).__init__("lcq", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 2:
+            raise gdb.GdbError("usage: lcq <cache_queue_ptr> <time>")
+
+        head = gdb.parse_and_eval(argv[0]).cast(typ("lrucache_pureffi_queue_t*"))
+        time = int(argv[1])
+
+        node = head['next']
+        while node != head:
+            diff = node['expire'] - time
+            out("ttl: %f\n" % diff)
+            node = node['next']
+
+lcq()
