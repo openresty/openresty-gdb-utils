@@ -968,6 +968,10 @@ def dump_tvalue(o, deep=False):
         s = fmtfunc(fn)
         out("\t\tfunction %s: (GCfunc*)%#x\n" % (s, ptr2int(fn)))
 
+    elif tvisthread(o):
+        th = gcval(o)['th']
+        out("\t\tthread: (lua_State*)%#x\n" % ptr2int(th))
+
     elif deep and tvistab(o):
         dump_table(tabV(o))
 
