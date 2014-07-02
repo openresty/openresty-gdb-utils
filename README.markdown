@@ -26,6 +26,8 @@ Table of Contents
     * [lfunc](#lfunc)
     * [luv](#luv)
     * [lgc](#lgc)
+    * [lgcstat](#lgcstat)
+    * [lgcpath](#lgcpath)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -582,6 +584,26 @@ Below is an example:
 total sz 7274672
 g->strnum 15172, g->gc.total 7274672
 ```
+
+[Back to TOC](#table-of-contents)
+
+lgcpath
+-------
+**syntax:** *lgcpath size [type]*
+
+**file** *luajit21.py*
+
+Finds large live LuaJIT GC objects with the size threshold (in bytes) and a type name ("tab", "str", "tab", "thr", "upval", "func", "tr"). The type name argument is optional. Also prints out the full referencing path from the GC roots to the object being matched.
+
+For example, finds all the live Lua tables whose size has exceeded 100KB:
+
+```
+(gdb) lgcpath 100000 tab
+path 000:[registry] ->Tab["_LOADED"] ->Tab["ffi"] ->Tab["gc"] ->cfunc ->env ->Tab sz:196640 (GCobj*)0x40784f58 ->END
+path 001:[registry] ->Tab[tv=0x4132e470] ->Tab sz:524328 (GCobj*)0x40783108 ->END
+```
+
+[Back to TOC](#table-of-contents)
 
 Prerequisites
 =============
