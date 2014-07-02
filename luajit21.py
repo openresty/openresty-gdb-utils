@@ -969,7 +969,7 @@ def dump_tvalue(o, deep=False):
         out("\t\tfunction %s: (GCfunc*)%#x\n" % (s, ptr2int(fn)))
 
     elif tvisthread(o):
-        th = gcval(o)['th']
+        th = gcval(o)['th'].address
         out("\t\tthread: (lua_State*)%#x\n" % ptr2int(th))
 
     elif deep and tvistab(o):
