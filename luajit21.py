@@ -1334,6 +1334,7 @@ def bc_isret(op):
     return (op == BC_RETM or op == BC_RET or op == BC_RET0 or op == BC_RET1)
 
 def locate_pc(pc):
+    """
     L = get_cur_L()
     g = G(L)
     p = g['gc']['root'].address
@@ -1360,6 +1361,7 @@ def locate_pc(pc):
     #print("isret: %d\n" % int(bc_isret(bc_op(pc[-1]))))
 
     out("no direct match. trying harder...\n")
+    """
 
     pt = pc2proto(pc)
     if not pt:
