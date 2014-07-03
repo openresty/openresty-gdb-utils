@@ -28,6 +28,7 @@ Table of Contents
     * [lgc](#lgc)
     * [lgcstat](#lgcstat)
     * [lgcpath](#lgcpath)
+    * [lthreadpc](#lthreadpc)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -601,6 +602,25 @@ For example, finds all the live Lua tables whose size has exceeded 100KB:
 (gdb) lgcpath 100000 tab
 path 000:[registry] ->Tab["_LOADED"] ->Tab["ffi"] ->Tab["gc"] ->cfunc ->env ->Tab sz:196640 (GCobj*)0x40784f58 ->END
 path 001:[registry] ->Tab[tv=0x4132e470] ->Tab sz:524328 (GCobj*)0x40783108 ->END
+```
+
+[Back to TOC](#table-of-contents)
+
+lthreadpc
+----------
+**syntax:** *lthreadpc <L>*
+
+**file** *luajit21.py*
+
+Prints out the next PC to be executed for a yielded Lua thread.
+
+```
+(gdb) lthreadpc (lua_State*)0x4169ece0
+next PC: (BCIns*)0x40c5d8f0
+proto: (GCproto*)0x40c5d898
+BC pos: 5
+source line: @/opt/app/dummy/lua/exit.lua:131
+proto first line: 127
 ```
 
 [Back to TOC](#table-of-contents)

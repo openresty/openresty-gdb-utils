@@ -3206,3 +3206,29 @@ Usage: lcq <from> <to>"""
             node = node['next']
 
 lcq()
+
+LUA_YIELD = 1
+
+class lthreadpc(gdb.Command):
+    """This command prints out the next PC to be executed for a yielded Lua thread.
+Usage: lthreadpc <L>"""
+
+    def __init__ (self):
+        super (lthreadpc, self).__init__("lthreadpc", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: lthreadpc <L>")
+
+        L = gdb.parse_and_eval(argv[0]).cast(typ("lua_State*"))
+
+        if L['cframe'] == null() and L['status'] <= LUA_YIELD:
+            pc = (L['base'].cast(typ("char*")) - 4).cast(typ("uint32_t*")).dereference()
+            out("next PC: (BCIns*)%#x\n" % pc)
+            locate_pc(pc.cast(typ("BCIns*")))
+        else:
+            raise gdb.GdbError("Lua thread in bad state")
+
+lthreadpc()
