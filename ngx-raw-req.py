@@ -53,7 +53,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
                     size += r['main']['header_end'] + 2 - b['start']
                     break
                 size += b['pos'] - b['start']
-            
+
         else:
             b = r['main']['header_in']
             if not b:
@@ -81,8 +81,8 @@ Usage: ngx-raw-req <ngx_http_request>"""
                 else:
                     pos = b['pos']
 
-                #print "r['main']['header_end']= %s" % r['main']['header_end'] 
-                #print "b['start']= %s" % b['start'] 
+                #print "r['main']['header_end']= %s" % r['main']['header_end']
+                #print "b['start']= %s" % b['start']
 
                 if b == first:
                     data = request_line['data']

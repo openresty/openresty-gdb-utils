@@ -1,8 +1,11 @@
+import sys
+
 import gdb
 import gdbutils
 import ngxlua
 import string
 import re
+import time
 
 typ = gdbutils.typ
 null = gdbutils.null
@@ -2411,6 +2414,8 @@ Usage: lgcstat"""
         self.ptr_sizeof = typ("void*").sizeof
 
     def invoke (self, args, from_tty):
+        begin = time.clock()
+
         L = get_global_L()
         if not L:
             raise gdb.GdbError("not able to get global_L")
@@ -2481,6 +2486,9 @@ Usage: lgcstat"""
         out ("\ntotal sz %d\n" % total_sz)
         out ("g->strnum %d, g->gc.total %d\n" %
                (int(g['strnum']), int(g['gc']['total'])))
+
+        elapsed = time.clock() - begin
+        out("elapsed: %f sec\n" % elapsed)
 
     def get_jit_state_sz(self, J):
         sz = 0
@@ -3232,3 +3240,102 @@ Usage: lthreadpc <L>"""
             raise gdb.GdbError("Lua thread in bad state")
 
 lthreadpc()
+
+class rawheader(gdb.Command):
+    def __init__ (self):
+        super (rawheader, self).__init__("rawheader", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: lthreadpc <r>")
+
+        r = gdb.parse_and_eval(argv[0]).cast(typ("ngx_http_request_t*"))
+
+        mr = r['main']
+        hc = mr['http_connection']
+        c = mr['connection']
+
+        size = 0
+        b = c['buffer']
+
+        if mr['request_line']['data'][mr['request_line']['len']] == newval("unsigned char", 13):
+            line_break_len = 2
+        else:
+            line_break_len = 1
+
+        first = None
+
+        if mr['request_line']['data'] >= b['start'] \
+                and mr['request_line']['data'] + mr['request_line']['len'] + line_break_len <= b['pos']:
+            first = b
+
+            if mr['header_in'] == b:
+                size += mr['header_in']['pos'] - mr['request_line']['data']
+            else:
+                p = b['pos']
+                size += p - mr['request_line']['data']
+
+                while b['pos'] > b['start'] and b['pos'][-1] != newval("unsigned char", 10):
+                    size -= 1
+
+        if hc['nbusy']:
+            b = null()
+
+        for i in xrange(0, int(hc['nbusy'])):
+            b = hc['busy'][i]
+
+            if not first:
+                if mr['request_line']['data'] >= b['pos'] \
+                        or mr['request_line']['data'] + mr['request_line']['len'] + line_break_len <= b['start']:
+                    continue
+
+                first = b
+
+            if b == mr['header_in']:
+                size += mr['header_in']['pos'] - b['start']
+                break
+
+            size += b['pos'] - b['start']
+
+        size += 1
+        last = 0
+
+        b = c['buffer']
+        if first == b:
+            raise gdb.GdbError("not implemented")
+
+        if hc['nbusy']:
+            found = (b == c['buffer'])
+            for i in xrange(0, int(hc['nbusy'])):
+                b = hc['busy'][i]
+
+                if not found:
+                    if b != first:
+                        continue
+                    found = 1
+
+                p = last
+
+                if b == mr['header_in']:
+                    pos = mr['header_in']['pos']
+                else:
+                    pos = b['pos']
+
+                if b == first:
+                    last += pos - mr['request_line']['data']
+                else:
+                    last += pos - b['start']
+
+                # skip truncated header entries (if any)
+
+                if b == mr['header_in']:
+                    break
+
+        last += 0
+        if last > size:
+            raise gdb.GdbError("buffer error: " + (last - size))
+
+rawheader()
+
