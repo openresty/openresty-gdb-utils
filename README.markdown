@@ -15,6 +15,7 @@ Table of Contents
     * [lvmst](#lvmst)
     * [lval](#lval)
     * [ltrace](#ltrace)
+    * [ltracebymcode](#ltracebymcode)
     * [lir](#lir)
     * [lmainL](#lmainl)
     * [lcurL](#lcurl)
@@ -321,6 +322,8 @@ machine code start addr: 0x7f0d083a8955
 machine code end addr: 0x7f0d083a8c81
 @/opt/app/lua/ip.lua:180
 ```
+
+[Back to TOC](#table-of-contents)
 
 lir
 ---
