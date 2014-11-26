@@ -1276,7 +1276,7 @@ def trace_findfree(J):
     return freetrace
 
 class ltrace(gdb.Command):
-    """This command prints out all the upvalues in the GCfunc* pointer specified.
+    """This command prints out details for the trace specified by the trace number
 Usage: ltrace [traceno]"""
 
     def __init__ (self):
@@ -3338,4 +3338,53 @@ class rawheader(gdb.Command):
             raise gdb.GdbError("buffer error: " + (last - size))
 
 rawheader()
+
+class ltracebymcode(gdb.Command):
+    """This command prints out the trace by an included machine code address.
+Usage: ltracebymcode [addr]"""
+
+    def __init__ (self):
+        super (ltracebymcode, self).__init__("ltracebymcode", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: ltracebymcode addr")
+
+        addr = None
+
+        addr = gdbutils.parse_ptr(argv[0], "void*")
+
+        L = get_global_L()
+
+        g = G(L)
+        J = G2J(g)
+
+        freetrace = trace_findfree(J)
+        if not freetrace:
+            raise gdb.GdbError("No trace found")
+
+        for traceno in xrange(1, freetrace):
+
+            T = traceref(J, traceno)
+            start = T['mcode']
+            szmcode = int(T['szmcode'])
+
+            if addr >= start and addr <= start + szmcode:
+                if not T:
+                    raise gdb.GdbError("trace %d not valid" % traceno)
+
+                out("(GCtrace*)0x%x (trace #%d)\n" % (ptr2int(T), traceno))
+                out("machine code start addr: 0x%x\n" % ptr2int(start))
+                out("machine code end addr: 0x%x\n" % (ptr2int(start) + szmcode))
+                pt = gcref(T['startpt'])['pt'].address
+                pc = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
+                line = lj_debug_line(pt, pc)
+                name = proto_chunkname(pt)
+                if name:
+                    path = lstr2str(name)
+                    out("%s:%d\n" % (path, line))
+
+ltracebymcode()
 

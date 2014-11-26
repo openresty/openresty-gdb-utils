@@ -309,6 +309,19 @@ Found 253 traces.
 
 [Back to TOC](#table-of-contents)
 
+ltracebymcode
+-------------
+
+Searches through all the traces for a trace whose machine code contains the specified address (as the only argument).
+
+```
+(gdb) ltracebymcode 0x7f0d083a8955
+(GCtrace*)0x41479010 (trace #998)
+machine code start addr: 0x7f0d083a8955
+machine code end addr: 0x7f0d083a8c81
+@/opt/app/lua/ip.lua:180
+```
+
 lir
 ---
 **syntax:** *lir traceno*
