@@ -121,6 +121,8 @@ def get_global_L():
 
 def get_cur_L():
     mL = get_global_L()
+    #out("mL type: %s\n" % str(mL.type))
+    #out("null type: %s\n" % str(null().type))
     if mL == null():
         return mL
     return gcref(G(mL)['cur_L'])['th'].address
@@ -555,7 +557,13 @@ Usage: lbt [L]
                 if vmstate == ~LJ_VMST_INTERP or \
                        vmstate == ~LJ_VMST_C or \
                        vmstate == ~LJ_VMST_GC:
-                    base = L['base']
+                    if vmstate == ~LJ_VMST_INTERP:
+                        #out("Fetching edx...")
+                        base = gdb.parse_and_eval("$edx").cast(typ("TValue*"))
+
+                    else:
+                        base = L['base']
+
                     bt = lj_debug_dumpstack(L, 0, 30, base, full)
 
                 else:
@@ -1120,6 +1128,38 @@ def dump_upvalues(fn, pt):
         out("upvalue \"%s\": value=(TValue*)0x%x value_type=%s closed=%d\n" % \
                 (name, ptr2int(tvp), ltype(tvp), int(uv['closed'])))
 
+def find_lfunc_by_src_loc(fname, lineno):
+    res = []
+
+    L = get_cur_L()
+
+    #print "g: ", hex(int(L['glref']['ptr32']))
+
+    g = G(L)
+
+    #print "lineno: %d" % lineno
+    #print "file: %s" % fname
+
+    p = g['gc']['root'].address
+    while p:
+        o = gcref(p)
+        if not o:
+            break
+        if o['gch']['gct'] == ~LJ_TFUNC():
+            fn = o['fn'].address
+            pt = funcproto(fn)
+            if pt and pt['firstline'] == lineno:
+                #print "proto: 0x%x\n" % ptr2int(pt)
+                name = proto_chunkname(pt)
+                #print "name: 0x%x\n" % ptr2int(name)
+                #print "len: %d\n" % int(name['len'])
+                if name:
+                    path = lstr2str(name)
+                    if string.find(path, fname) >= 0:
+                        res.append((fn, path))
+        p = o['gch']['nextgc'].address
+    return res
+
 class lfunc(gdb.Command):
     """This command prints out all the Lua functions (the GCfunc* pointers) filtered by the file name and file line number where the function is defined.
 Usage: lfunc file lineno"""
@@ -1132,37 +1172,15 @@ Usage: lfunc file lineno"""
         if len(argv) != 2:
             raise gdb.GdbError("Usage: lfunc file lineno")
 
-        L = get_cur_L()
-
         fname = str(argv[0])
         lineno = int(argv[1])
 
-        #print "g: ", hex(int(L['glref']['ptr32']))
-
-        g = G(L)
-
-        #print "lineno: %d" % lineno
-        #print "file: %s" % fname
-
-        p = g['gc']['root'].address
-        while p:
-            o = gcref(p)
-            if not o:
-                break
-            if o['gch']['gct'] == ~LJ_TFUNC():
-                fn = o['fn'].address
-                pt = funcproto(fn)
-                if pt and pt['firstline'] == lineno:
-                    #print "proto: 0x%x\n" % ptr2int(pt)
-                    name = proto_chunkname(pt)
-                    #print "name: 0x%x\n" % ptr2int(name)
-                    #print "len: %d\n" % int(name['len'])
-                    if name:
-                        path = lstr2str(name)
-                        if string.find(path, fname) >= 0:
-                            out("Found Lua function (GCfunc*)0x%x at %s:%d\n" \
-                                    % (ptr2int(fn), path, lineno))
-            p = o['gch']['nextgc'].address
+        res = find_lfunc_by_src_loc(fname, lineno)
+        for hit in res:
+            fn = hit[0]
+            path = hit[1]
+            out("Found Lua function (GCfunc*)0x%x at %s:%d\n" \
+                    % (ptr2int(fn), path, lineno))
 
 lfunc()
 
@@ -1336,7 +1354,7 @@ def bc_isret(op):
     op = int(op)
     return (op == BC_RETM or op == BC_RET or op == BC_RET0 or op == BC_RET1)
 
-def locate_pc(pc):
+def locate_pc(pc, verbose):
     """
     L = get_cur_L()
     g = G(L)
@@ -1371,15 +1389,19 @@ def locate_pc(pc):
         out("No matching proto found")
         return
 
-    out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
+    if verbose:
+        out("proto: (GCproto*)0x%x\n" % ptr2int(pt))
+
     pos = proto_bcpos(pt, pc) - 1
     name = proto_chunkname(pt)
     if name:
         path = lstr2str(name)
         line = lj_debug_line(pt, pos)
-        out("BC pos: %d\n" % int(pos))
+        if verbose:
+            out("BC pos: %d\n" % int(pos))
         out("source line: %s:%d\n" % (path, line))
-        out("proto first line: %d\n" % int(pt['firstline']))
+        if verbose:
+            out("proto first line: %d\n" % int(pt['firstline']))
         return
 
 class lpc(gdb.Command):
@@ -1399,7 +1421,7 @@ Usage: lpc pc"""
 
         #out("pc type: %s\n" % str(pc.type))
 
-        locate_pc(pc)
+        locate_pc(pc, True)
 
 lpc()
 
@@ -3055,7 +3077,7 @@ def pc2proto(pc):
         op = bcnames[oidx:oidx+6]
         #print("op: %s" % op)
         if op == "FUNCF " or op == "FUNCV " or op == "JFUNCF" \
-           or op == "JFUNCV":
+           or op == "JFUNCV" or op == "IFUNCF" or op == "IFUNCV":
             return ((pc - i).cast(typ("char*")) - typ("GCproto").sizeof).cast(typ("GCproto*"))
         i += 1
     return None
@@ -3387,4 +3409,289 @@ Usage: ltracebymcode [addr]"""
                     out("%s:%d\n" % (path, line))
 
 ltracebymcode()
+
+setFuncEntryBPs = False
+
+FuncEntryTargets = {}
+FuncEntryMatchAll = False
+
+FuncEntryBPs = []
+
+class BCCallMBP (gdb.Breakpoint):
+    def __init__ (self):
+        super (BCCallMBP, self).__init__("lj_BC_CALLM")
+
+    def stop (self):
+        RA = gdb.parse_and_eval("$ecx")
+        BASE = gdb.parse_and_eval("$edx").cast(typ("TValue*"))
+        fntv = BASE[RA]
+
+        hit = False
+        global FuncEntryMatchAll
+        if FuncEntryMatchAll:
+            hit = True
+
+        else:
+            global FuncEntryTargets
+            fn = gcval(fntv)['fn'].address
+            if ptr2int(fn) in FuncEntryTargets:
+                hit = True
+
+        if not hit:
+            return False
+
+        MULTRES = int(gdb.parse_and_eval("$rsp").cast(typ("uint32_t*"))[1])
+        #out("multres: %d" % MULTRES)
+        dump_tvalue(fntv)
+        pc = gdb.parse_and_eval("$ebx").cast(typ("BCIns*")) - 1
+        locate_pc(pc, False)
+        RC = gdb.parse_and_eval("$al") + MULTRES
+        RC -= 1
+        out("Taking %d arguments:\n" % RC)
+        for i in xrange(0, RC):
+            dump_tvalue(BASE[RA + 1 + i])
+        return True
+
+class BCCallBP (gdb.Breakpoint):
+    def __init__ (self):
+        super (BCCallBP, self).__init__("lj_BC_CALL")
+
+    def stop (self):
+        RA = gdb.parse_and_eval("$ecx")
+        BASE = gdb.parse_and_eval("$edx").cast(typ("TValue*"))
+        fntv = BASE[RA]
+
+        hit = False
+        global FuncEntryMatchAll
+        if FuncEntryMatchAll:
+            hit = True
+
+        else:
+            global FuncEntryTargets
+            fn = gcval(fntv)['fn'].address
+            if ptr2int(fn) in FuncEntryTargets:
+                hit = True
+
+        if not hit:
+            return False
+
+        dump_tvalue(fntv)
+        pc = gdb.parse_and_eval("$ebx").cast(typ("BCIns*")) - 1
+        locate_pc(pc, False)
+        RC = gdb.parse_and_eval("$al")
+        RC -= 1
+        out("Taking %d arguments:\n" % RC)
+        for i in xrange(0, RC):
+            dump_tvalue(BASE[RA + 1 + i])
+        return True
+
+class BCCallTBP (gdb.Breakpoint):
+    def __init__ (self):
+        super (BCCallTBP, self).__init__("lj_BC_CALLT")
+
+    def stop (self):
+        RA = gdb.parse_and_eval("$ecx")
+        BASE = gdb.parse_and_eval("$edx").cast(typ("TValue*"))
+        fntv = BASE[RA]
+
+        hit = False
+        global FuncEntryMatchAll
+        if FuncEntryMatchAll:
+            hit = True
+
+        else:
+            global FuncEntryTargets
+            fn = gcval(fntv)['fn'].address
+            if ptr2int(fn) in FuncEntryTargets:
+                hit = True
+
+        if not hit:
+            return False
+
+        dump_tvalue(fntv)
+        pc = gdb.parse_and_eval("$ebx").cast(typ("BCIns*")) - 1
+        #out("pc = %#x" % ptr2int(pc))
+        locate_pc(pc, False)
+        RD = gdb.parse_and_eval("$eax")
+        RD -= 1
+        out("Taking %d arguments:\n" % RD)
+        for i in xrange(0, RD):
+            dump_tvalue(BASE[RA + 1 + i])
+        return True
+
+def matchAny(fn):
+    return True
+
+class lb(gdb.Command):
+    """This command sets a breakpoint on (interpreted) Lua function call entry
+Usage: lb <spec>"""
+
+    def __init__ (self):
+        super (lb, self).__init__("lb", gdb.COMMAND_USER)
+
+    src_line_pat = re.compile("(\S+):(\d+)")
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: lb <spec>")
+
+        global FuncEntryMatchAll
+
+        spec = argv[0]
+        #out("spec = %s\n" % spec)
+        if spec == "*":
+            FuncEntryMatchAll = True
+
+        else:
+            m = re.match(lb.src_line_pat, spec)
+            if m is not None:
+                fname = m.group(1)
+                lineno = int(m.group(2))
+
+                #if FuncEntryMatchAll:
+                    #raise gdb.GdbError("Breakpoint already set on all Lua function entries")
+
+                out("Searching Lua function at %s:%d...\n" % (fname, lineno))
+                res = find_lfunc_by_src_loc(fname, lineno)
+                found = False
+                for hit in res:
+                    fn = hit[0]
+                    path = hit[1]
+                    out("Set break point on (GCfunc*)%#x at %s:%d\n" \
+                        % (ptr2int(fn), path, lineno))
+                    FuncEntryTargets[ptr2int(fn)] = spec
+                    found = True
+
+                if not found:
+                    raise gdb.GdbError("failed to find Lua function matching %s" \
+                            % spec)
+            else:
+                raise gdb.GdbError("Bad spec: %s" % spec)
+
+        global setFuncEntryBPs, FuncEntryBPs
+        if not setFuncEntryBPs:
+            setFuncEntryBPs = True
+            FuncEntryBPs.append(BCCallBP())
+            FuncEntryBPs.append(BCCallTBP())
+            FuncEntryBPs.append(BCCallMBP())
+            # lj_BC_CALLMT is already covered by lj_BC_CALLT
+
+        else:
+            # validate the break points to protect against user
+            # removal
+            for bp in FuncEntryBPs:
+                if not bp.is_valid():
+                    bp.__init__()
+
+lb()
+
+def removeAllBPs():
+    FuncEntryTargets.clear()
+    for bp in FuncEntryBPs:
+        if not bp.is_valid():
+            bp.delete()
+    del FuncEntryBPs[:]
+    setFuncEntryBPs = False
+
+    try:
+        gdb.execute("clear lj_BC_CALL")
+        gdb.execute("clear lj_BC_CALLM")
+        gdb.execute("clear lj_BC_CALLT")
+    except:
+        pass
+
+class ldel(gdb.Command):
+    """This command deletes existing breakpoints on (interpreted) Lua function call entry
+Usage: ldel [spec]"""
+
+    def __init__ (self):
+        super (ldel, self).__init__("ldel", gdb.COMMAND_USER)
+
+    src_line_pat = re.compile("(\S+):(\d+)")
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        global FuncEntryMatchAll, FuncEntryBPs, FuncEntryTargets
+
+        if len(argv) == 0:
+            # remove all Lua function breakpoints
+            removeAllBPs()
+            return
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: ldel [spec]")
+
+        spec = argv[0]
+        #out("spec = %s\n" % spec)
+        if spec == "*":
+            FuncEntryMatchAll = False
+
+        else:
+            m = re.match(lb.src_line_pat, spec)
+            if m is not None:
+                fname = m.group(1)
+                lineno = int(m.group(2))
+
+                #if FuncEntryMatchAll:
+                    #raise gdb.GdbError("Breakpoint already set on all Lua function entries")
+
+                out("Searching Lua function at %s:%d...\n" % (fname, lineno))
+                res = find_lfunc_by_src_loc(fname, lineno)
+                found = False
+                for hit in res:
+                    fn = hit[0]
+                    path = hit[1]
+                    found = True
+                    key = ptr2int(fn)
+                    if key in FuncEntryTargets:
+                        out("Remove break point on (GCfunc*)%#x at %s:%d\n" \
+                            % (key, path, lineno))
+                        FuncEntryTargets.pop(key, None)
+                        if not FuncEntryTargets:
+                            removeAllBPs()
+
+                    else:
+                        raise gdb.GdbError("No existing breakpoint set " \
+                                           "on (GCfunc*)%#x at %s:%d\n" \
+                                           % (key, path, lineno))
+
+                if not found:
+                    raise gdb.GdbError("failed to find Lua function matching %s" \
+                            % spec)
+            else:
+                raise gdb.GdbError("Bad spec: %s" % spec)
+
+ldel()
+
+class linfob(gdb.Command):
+    """This command shows all the existing breakpoints on (interpreted) Lua function call entry
+Usage: linfob [spec]"""
+
+    def __init__ (self):
+        super (linfob, self).__init__("linfob", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 0:
+            raise gdb.GdbError("usage: linfob")
+
+        global FuncEntryMatchAll, FuncEntryBPs, FuncEntryTargets
+
+        if not FuncEntryMatchAll and not FuncEntryTargets:
+            raise gdb.GdbError("No Lua breakpoints.")
+
+        out("Type\tAddress\t\tWhat\n")
+
+        if FuncEntryMatchAll:
+            out("entry\t-\t*\n")
+
+        for fn in FuncEntryTargets:
+            spec = FuncEntryTargets[fn]
+            out("entry\t%#x\t%s\n" % (fn, spec))
+
+linfob()
 
