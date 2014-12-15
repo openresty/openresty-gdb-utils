@@ -1147,16 +1147,17 @@ def find_lfunc_by_src_loc(fname, lineno):
             break
         if o['gch']['gct'] == ~LJ_TFUNC():
             fn = o['fn'].address
-            pt = funcproto(fn)
-            if pt and pt['firstline'] == lineno:
-                #print "proto: 0x%x\n" % ptr2int(pt)
-                name = proto_chunkname(pt)
-                #print "name: 0x%x\n" % ptr2int(name)
-                #print "len: %d\n" % int(name['len'])
-                if name:
-                    path = lstr2str(name)
-                    if string.find(path, fname) >= 0:
-                        res.append((fn, path))
+            if isluafunc(fn):
+                pt = funcproto(fn)
+                if pt and pt['firstline'] == lineno:
+                    #print "proto: 0x%x\n" % ptr2int(pt)
+                    name = proto_chunkname(pt)
+                    #print "name: 0x%x\n" % ptr2int(name)
+                    #print "len: %d\n" % int(name['len'])
+                    if name:
+                        path = lstr2str(name)
+                        if string.find(path, fname) >= 0:
+                            res.append((fn, path))
         p = o['gch']['nextgc'].address
     return res
 
@@ -3787,7 +3788,7 @@ class BCRetBP (gdb.Breakpoint):
             out("Returning %d value(s):\n" % RD)
 
             for i in xrange(0, RD):
-                dump_tvalue(BASE[RA + i])
+                dump_tvalue(BASE[RA + i], True)
         return True
 
 class BCRet0BP (BCRetBP):
