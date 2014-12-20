@@ -1,0 +1,113 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use POSIX qw( SIGCONT SIGSTOP );
+
+my $master = shift or
+    die "No master pid specified.\n";
+
+my $worker = shift or
+    die "No worker pid specified.\n";
+
+my $path = get_exec_path($master) or
+    die "Master process $master is not running or ",
+        "you do not have enough permissions.\n";
+
+warn "Found master process $master: $path\n";
+
+my @workers = get_child_processes($master);
+my $found;
+for my $w (@workers) {
+    if ($worker == $w) {
+        $found = 1;
+        last;
+    }
+}
+if (!$found) {
+    die "The specified worker $worker is not found in all the children of the master.\n";
+}
+
+warn "Found worker $worker under the master.\n";
+
+my $state = get_process_state($worker);
+if ($state =~ /^[ZKWPXxt]$/) {
+    die "Worker process $worker is in bad state: $state\n";
+}
+
+if ($state =~ /^[T]$/) {
+    warn "sending SIGCONT to the stopped worker $worker...\n";
+    kill SIGCONT, $worker
+        or die "failed to send SIGCONT to worker $worker: $!";
+
+} else {
+    warn "the specified worker $worker is already in good state $state, no action required.\n";
+}
+
+for my $w (@workers) {
+    if ($worker != $w) {
+        my $state = get_process_state($w);
+        if ($state =~ /^[ZKWPXxt]$/) {
+            next;
+        }
+        if ($state =~ /^[RSD]$/) {
+            warn "sending SIGSTOP to the running worker $w...\n";
+            kill SIGSTOP, $w
+                or die "failed to send SIGSOTP to worker $w: $!";
+        }
+    }
+}
+
+sub get_process_state {
+    my $pid = shift;
+    my $infile = "/proc/$pid/stat";
+    open my $in, $infile
+        or die "Failed to open $infile for reading: $!";
+    my $line = <$in>;
+    close $in;
+    if (!$line) {
+        die "Failed to read $infile: $!";
+    }
+    chomp $line;
+    if ($line =~ /^\S+\s+\S+\s+(\S+)/) {
+        return $1;
+    }
+
+    die "failed to get status of process $pid: $line\n";
+}
+
+sub get_exec_path {
+    my $pid = shift;
+    my $exec_file = "/proc/$pid/exe";
+    if (!-f $exec_file) {
+        return undef;
+    }
+
+    return readlink $exec_file;
+}
+
+sub get_child_processes {
+    my $pid = shift;
+    my @files = glob "/proc/[0-9]*/stat";
+    my @children;
+    for my $file (@files) {
+        #print "file: $file\n";
+        if ($file =~ m{^/proc/$pid/}) {
+            next;
+        }
+
+        open my $in, $file or next;
+        my $line = <$in>;
+        close $in;
+        if ($line =~ /^(\d+) \S+ \S+ (\d+)/) {
+            my ($child, $parent) = ($1, $2);
+            if ($parent eq $pid) {
+                push @children, $child;
+            }
+        }
+    }
+
+    @children = sort { $a <=> $b } @children;
+    return @children;
+}
+
