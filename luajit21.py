@@ -3629,9 +3629,21 @@ def removeAllReturnBPs():
     except:
         pass
 
+def removeAllTraceEventBPs():
+    for bp in TraceEventBPs:
+        if not bp.is_valid():
+            bp.delete()
+
+    try:
+        gdb.execute("clear lj_trace_log_event")
+
+    except:
+        pass
+
 def removeAllBPs():
     removeAllEntryBPs()
     removeAllReturnBPs()
+    removeAllTraceEventBPs()
 
 class ldel(gdb.Command):
     """This command deletes existing breakpoints on (interpreted) Lua function call entries and returns
@@ -3721,7 +3733,7 @@ Usage: linfob [spec]"""
         global FuncEntryMatchAll, FuncEntryBPs, FuncEntryTargets
 
         if not FuncEntryMatchAll and not FuncEntryTargets \
-                and not FuncReturnTargets:
+                and not FuncReturnTargets and len(TraceEventBPs) == 0:
             raise gdb.GdbError("No Lua breakpoints.")
 
         out("Type\tAddress\t\t\tWhat\n")
@@ -3738,6 +3750,9 @@ Usage: linfob [spec]"""
             spec = rec[0]
             loc = rec[1]
             out("return\t(BCIns*)%#x\t%s in func %s\n" % (pc, spec, loc))
+
+        if len(TraceEventBPs) > 0:
+            out("trace\t-\t-\n")
 
 linfob()
 
@@ -3879,4 +3894,77 @@ Usage: lrb <spec>"""
                     bp.__init__()
 
 lrb()
+
+class TraceEventBP (gdb.Breakpoint):
+    def __init__ (self):
+        super (TraceEventBP, self).__init__("lj_trace_log_event")
+
+    def stop (self):
+        e = gdb.parse_and_eval("rec")
+
+        if not e:
+            raise gdb.GdbError("No event record found")
+
+        event = e["event"]
+
+        traceno = e["traceno"]
+        L = e["thread"]
+        fn = e["fn"]
+        pc = e["ins"]
+        direct_exit = e["directexit"]
+
+        pt = pc2proto(pc)
+
+        evname = None
+
+        #print("trace event type: %d" % rec["event"])
+        if event == 0:
+            # trace entry
+            evname = "==> Enter"
+
+        elif event == 1:
+            if direct_exit:
+                evname = "<== Direct exit"
+
+            else:
+                evname = "<== Normal exit"
+
+        else:
+            evname = "*** Start recording"
+
+        out("%s trace #%d: L=%#x pc=%#x\n" \
+            % (evname, int(traceno), ptr2int(L), ptr2int(pc)))
+        out("\tline: %s\n" % pc2loc(pt, pc))
+        out("\tfunction: %s\n" % fmtfunc(fn))
+
+        return True
+
+TraceEventBPs = []
+
+class ltb(gdb.Command):
+    """This command sets a breakpoint on (compiled) LuaJIT trace entry and exit.
+Usage: ltb"""
+
+    def __init__ (self):
+        super (ltb, self).__init__("ltb", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 0:
+            raise gdb.GdbError("usage: ltb")
+
+        global TraceEventBPs
+
+        if not TraceEventBPs:
+            TraceEventBPs.append(TraceEventBP())
+
+        else:
+            # validate the break points to protect against user
+            # removal
+            for bp in TraceEventBPs:
+                if not bp.is_valid():
+                    bp.__init__()
+
+ltb()
 
