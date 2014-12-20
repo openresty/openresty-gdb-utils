@@ -3911,11 +3911,11 @@ class TraceEventBP (gdb.Breakpoint):
         L = e["thread"]
         fn = e["fn"]
         pc = e["ins"]
-        direct_exit = e["directexit"]
 
         pt = pc2proto(pc)
 
         evname = None
+        exitno = None
 
         #print("trace event type: %d" % rec["event"])
         if event == 0:
@@ -3923,6 +3923,8 @@ class TraceEventBP (gdb.Breakpoint):
             evname = "==> Enter"
 
         elif event == 1:
+            exitno = e['exitno']
+            direct_exit = e["directexit"]
             if direct_exit:
                 evname = "<== Direct exit"
 
@@ -3934,6 +3936,8 @@ class TraceEventBP (gdb.Breakpoint):
 
         out("%s trace #%d: L=%#x pc=%#x\n" \
             % (evname, int(traceno), ptr2int(L), ptr2int(pc)))
+        if exitno is not None:
+            out("\texit no: %d\n" % int(exitno))
         out("\tline: %s\n" % pc2loc(pt, pc))
         out("\tfunction: %s\n" % fmtfunc(fn))
 
