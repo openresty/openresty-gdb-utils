@@ -3937,6 +3937,10 @@ class TraceEventBP (gdb.Breakpoint):
         out("\tline: %s\n" % pc2loc(pt, pc))
         out("\tfunction: %s\n" % fmtfunc(fn))
 
+        if event == 1:  # exit
+            out("\tbacktrace:\n")
+            gdb.execute("lbt full")
+
         return True
 
 TraceEventBPs = []

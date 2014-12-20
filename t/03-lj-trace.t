@@ -53,5 +53,9 @@ qr/==> Enter trace \#1: L=0x[a-f0-9]{3,} pc=0x[a-f0-9]{3,}
 <== Normal exit trace \#1: L=0x[a-f0-9]{3,} pc=0x[a-f0-9]{3,}
 \tline: \@a\.lua:8
 \tfunction: \@a\.lua:3
+\tbacktrace:
+\@a\.lua:5
+\tlocal "a":
+\t\tint 20100
 /s
 
