@@ -896,7 +896,7 @@ def dump_table(t):
     out("table (GCtab*)%#x (narr=%d, nrec=%d):\n" % (ptr2int(t), narr, nhmask))
     arr = tvref(t['array'])
     for i in xrange(narr):
-        v = arr[i]
+        v = arr[i].address
         if not tvisnil(v):
             out("\t[%d] =\n" % i)
             dump_tvalue(v)
