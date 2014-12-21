@@ -987,7 +987,7 @@ def dump_tvalue(o, deep=False):
         dump_table(tabV(o))
 
     else:
-        out("\t\t%s (0x%x)\n" % (ltype(o), ptr2int(o)))
+        out("\t\t%s: (TValue*)%#x\n" % (ltype(o), ptr2int(o)))
 
 class lval(gdb.Command):
     """This command prints out the content of a TValue* pointer
