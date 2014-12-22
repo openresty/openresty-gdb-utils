@@ -30,6 +30,10 @@ Table of Contents
     * [lgcstat](#lgcstat)
     * [lgcpath](#lgcpath)
     * [lthreadpc](#lthreadpc)
+    * [lb](#lb)
+    * [lrb](#lrb)
+    * [linfob](#linfob)
+    * [ldel](#ldel)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -637,6 +641,210 @@ proto: (GCproto*)0x40c5d898
 BC pos: 5
 source line: @/opt/app/dummy/lua/exit.lua:131
 proto first line: 127
+```
+
+[Back to TOC](#table-of-contents)
+
+lb
+--
+
+**syntax:** *lb <spec>*
+
+**file** *luajit21.py*
+
+Sets a breakpoint on interpreted Lua function call entries.
+
+The Lua function is specified by the Lua file name and first line's line number of the Lua function (prototype) definition.
+
+For example,
+
+```
+(gdb) lb foo.lua:32
+```
+
+defines a breakpoint on the entry point of the Lua function defined on the line 32 of the file `foo.lua`. The line 32 may look like this:
+
+```lua
+local function do_something()
+```
+
+Below is a complete example:
+
+```
+(gdb) lb a.lua:1
+Searching Lua function at a.lua:1...
+Set break point on (GCfunc*)0x40007e08 at @a.lua:1
+Breakpoint 2 at 0x4225e6
+Breakpoint 3 at 0x422614
+Breakpoint 4 at 0x4225b8
+
+(gdb) c
+Entry breakpoint hit at
+              function @a.lua:1: (GCfunc*)0x40007d20
+source line: @a.lua:7
+Taking 2 arguments:
+              int 1
+              number 2.4
+
+Breakpoint 2, 0x00000000004225e6 in lj_BC_CALL ()
+```
+
+You can also set breapoints on every interpreted Lua function call entries by specifying `*`:
+
+```
+(gdb) lb *
+```
+
+If you want to set breakpoints on Lua function call returns, then you
+should use the [lrb](#lrb) gdb command instead.
+
+Existing Lua-land breakpoints can be viewed via the [linfob](#linfob) gdb command.
+
+Right now, only interpreted Lua function calls run by LuaJIT 2.1 are supported.
+But we will add support for JIT-compiled Lua function calls in the near future.
+
+[Back to TOC](#table-of-contents)
+
+lrb
+---
+**syntax:** *lrb <spec>*
+
+**file** *luajit21.py*
+
+Sets a breakpoint on interpreted Lua function call returns.
+
+The Lua function is specified by the Lua file name and first line's line number of the Lua function (prototype) definition.
+
+For example,
+
+```
+(gdb) lb foo.lua:32
+```
+
+defines a breakpoint on the entry point of the Lua function defined on the line 32 of the file `foo.lua`. The line 32 may look like this:
+
+```lua
+local function do_something()
+```
+
+Below is a complete example:
+
+```
+(gdb) lrb a.lua:1
+Searching Lua function at a.lua:1...
+Set breakpoint on RET1 (line @a.lua:3)
+Set breakpoint on RET1 (line @a.lua:5)
+Set breakpoint on RET0 (line @a.lua:7)
+Breakpoint 2 at 0x4228b0
+Breakpoint 3 at 0x422938
+Breakpoint 4 at 0x422994
+
+(gdb) c
+Return breakpoint hit at
+              line @a.lua:3 of function a.lua:1
+Returning 1 value(s):
+              string: "hello" (len 5)
+
+Breakpoint 4, 0x0000000000422994 in lj_BC_RET1 ()
+
+(gdb) c
+Return breakpoint hit at
+              line @a.lua:5 of function a.lua:1
+Returning 1 value(s):
+              string: "hiya" (len 4)
+
+Breakpoint 4, 0x0000000000422994 in lj_BC_RET1 ()
+```
+
+If the Lua function returns via a tail call, then you should set a breakpoint on
+the ultimate Lua function at the end of the tail call chain instead. For instance,
+
+```lua
+function foo()
+    return true;
+end
+
+function bar(a)
+    return foo()
+end
+```
+
+In order to set a breakpoint on Lua function `bar` here, you should set a breakpoint on the `foo` function instead because `bar` is returning by a tailcall to `foo`.
+
+Unlike the [lb](#lb) command, the `*` spec is not supported, that is,
+setting breakpoints on all the Lua function returns is not supported (yet).
+
+[Back to TOC](#table-of-contents)
+
+linfob
+------
+
+**syntax:** *linfob*
+
+**file** *luajit21.py*
+
+Lists all the existing Lua-land breakpoints.
+
+Below is an example:
+
+```
+(gdb) linfob
+Type    Address                 What
+entry   (GCfunc*)0x40ef8ed0     ownership.lua:190
+entry   (GCfunc*)0x40b523d0     shcache.lua:454
+return  (BCIns*)0x40eeb130      ownership.lua:190 in func ownership.lua:238
+return  (BCIns*)0x40eeb2d8      ownership.lua:190 in func ownership.lua:307
+return  (BCIns*)0x40eeb330      ownership.lua:190 in func ownership.lua:328
+trace   -       -
+```
+
+[Back to TOC](#table-of-contents)
+
+ldel
+----
+
+**syntax:** *ldel*
+
+**syntax:** *ldel <spec>*
+
+**file** *luajit21.py*
+
+Removes one or more Lua-land breakpoints.
+
+When running without any arguments, it removes all the existing Lua-land breakpoints.
+
+Alternatively you scan specify a Lua function position (as in the `lb` and `lrb` commands) to remove the entry and return breakpoints on that Lua function only. For example,
+
+```
+(gdb) lb a.lua:1
+Searching Lua function at a.lua:1...
+Set break point on (GCfunc*)0x40007d40 at @a.lua:1
+Breakpoint 2 at 0x4225e6
+Breakpoint 3 at 0x422614
+Breakpoint 4 at 0x4225b8
+
+(gdb) lrb a.lua:1
+Searching Lua function at a.lua:1...
+Set breakpoint on RET0 (line @a.lua:2)
+Breakpoint 5 at 0x4228b0
+Breakpoint 6 at 0x422938
+Breakpoint 7 at 0x422994
+
+(gdb) lb a.lua:5
+Searching Lua function at a.lua:5...
+Set break point on (GCfunc*)0x40007e28 at @a.lua:5
+
+(gdb) ldel a.lua:1
+Searching Lua function at a.lua:1...
+Remove entry breakpoint on (GCfunc*)0x40007d40 at @a.lua:1
+Remove return breakpoint on (GCfunc*)0x40007f2c at @a.lua:1
+
+(gdb) ldel a.lua:5
+Searching Lua function at a.lua:5...
+Remove entry breakpoint on (GCfunc*)0x40007e28 at @a.lua:5
+
+(gdb) linfob
+No Lua breakpoints.
 ```
 
 [Back to TOC](#table-of-contents)
