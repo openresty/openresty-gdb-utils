@@ -247,3 +247,70 @@ Taking 2 arguments:
 Breakpoint \d+, 0x[0-9a-f]{3,} in lj_BC_CALLT \(\)
 /
 
+
+
+=== TEST 8: *
+--- lua
+local function f()
+    return
+end
+
+collectgarbage()
+
+f()
+
+--- gdb
+b lj_cf_collectgarbage
+r
+del
+lb *
+c
+
+--- err
+--- out_like eval
+qr/(?:Breakpoint \d+ at 0x[0-9a-f]{3,}[^\n]*
+)+Entry breakpoint hit at
+\t\tfunction \@a\.lua:1: \(GCfunc\*\)0x[0-9a-f]{3,}
+source line: \@a\.lua:7
+Taking no arguments\.
+
+Breakpoint \d+, 0x[0-9a-f]{3,} in lj_BC_CALL \(\)
+/
+
+
+
+=== TEST 9: multiple entry breakpoints
+--- lua
+local function f()
+    return
+end
+
+local function g()
+    return
+end
+
+collectgarbage()
+
+f()
+g()
+
+--- gdb
+b lj_cf_collectgarbage
+r
+del
+lb a.lua:1
+lb a.lua:5
+c
+c
+
+--- err
+--- out_like eval
+qr/Entry breakpoint hit at
+\t\tfunction \@a\.lua:1: \(GCfunc\*\)0x[0-9a-f]{3,}
+source line: \@a\.lua:11
+.*?
+Entry breakpoint hit at
+\t\tfunction \@a\.lua:5: \(GCfunc\*\)0x[0-9a-f]{3,}
+source line: \@a\.lua:12
+/s
+

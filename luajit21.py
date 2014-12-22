@@ -3690,24 +3690,33 @@ Usage: ldel [spec]"""
                     path = hit[1]
                     found = True
                     key = ptr2int(fn)
+                    found_bps = False
                     if key in FuncEntryTargets:
-                        out("Remove break point on (GCfunc*)%#x at %s:%d\n" \
+                        out("Remove entry breakpoint on (GCfunc*)%#x at %s:%d\n" \
                             % (key, path, lineno))
+                        found_bps = True
                         FuncEntryTargets.pop(key, None)
                         if not FuncEntryTargets:
                             removeAllEntryBPs()
 
-                    else:
-                        for key in FuncReturnTargets:
-                            rec = FuncReturnTargets[key]
-                            if rec[0] == spec or rec[1] == spec:
-                                FuncReturnTargets.pop(key, None)
-                                if not FuncReturnTargets:
-                                    removeAllReturnBPs()
+                    to_rm = []
+                    for key in FuncReturnTargets:
+                        rec = FuncReturnTargets[key]
+                        if rec[0] == spec or rec[1] == spec:
+                            found_bps = True
+                            to_rm.append(key)
 
+                    if not found_bps:
                         raise gdb.GdbError("No existing breakpoint set " \
                                            "on (GCfunc*)%#x at %s:%d\n" \
                                            % (key, path, lineno))
+
+                    for key in to_rm:
+                        out("Remove return breakpoint on (GCfunc*)%#x at %s:%d\n" \
+                            % (key, path, lineno))
+                        FuncReturnTargets.pop(key, None)
+                        if not FuncReturnTargets:
+                            removeAllReturnBPs()
 
                 if not found:
                     raise gdb.GdbError("failed to find Lua function matching %s" \

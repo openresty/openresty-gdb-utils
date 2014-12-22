@@ -170,3 +170,50 @@ qr/Searching Lua function at a\.lua:1\.\.\.
 --- err_like eval
 qr/failed to find RET\* instructions in the function a\.lua:1/
 
+
+
+=== TEST 6: multiple return points in a single function
+--- lua
+local function f(a)
+    if a > 0 then
+        return "hello"
+    else
+        return "hiya"
+    end
+end
+
+collectgarbage()
+
+f(1)
+f(-1)
+
+--- gdb
+b lj_cf_collectgarbage
+r
+del
+lrb a.lua:1
+c
+c
+
+--- err
+--- out_like eval
+#use re 'debug';
+qr/Searching Lua function at a\.lua:1\.\.\.
+Set breakpoint on RET1 \(line \@a\.lua:3\)
+Set breakpoint on RET1 \(line \@a\.lua:5\)
+Set breakpoint on RET0 \(line \@a\.lua:7\)
+(?:Breakpoint \d+ at 0x[0-9a-f]{3,}[^\n]*
+)+Return breakpoint hit at
+\t\tline \@a\.lua:3 of function a\.lua:1
+Returning 1 value\(s\):
+\t\tstring: "hello" \(len 5\)
+
+Breakpoint \d+, 0x[0-9a-f]{3,} in lj_BC_RET1 \(\)
+Return breakpoint hit at
+\t\tline \@a\.lua:5 of function a\.lua:1
+Returning 1 value\(s\):
+\t\tstring: "hiya" \(len 4\)
+
+Breakpoint \d+, 0x[0-9a-f]{3,} in lj_BC_RET1 \(\)
+/
+
