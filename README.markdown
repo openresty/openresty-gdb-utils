@@ -700,6 +700,8 @@ should use the [lrb](#lrb) gdb command instead.
 
 Existing Lua-land breakpoints can be viewed via the [linfob](#linfob) gdb command.
 
+You can remove the breakpoints via the [ldel](#ldel) gdb command.
+
 Right now, only interpreted Lua function calls run by LuaJIT 2.1 are supported.
 But we will add support for JIT-compiled Lua function calls in the near future.
 
@@ -773,6 +775,10 @@ In order to set a breakpoint on Lua function `bar` here, you should set a breakp
 
 Unlike the [lb](#lb) command, the `*` spec is not supported, that is,
 setting breakpoints on all the Lua function returns is not supported (yet).
+
+Existing Lua-land breakpoints can be viewed via the [linfob](#linfob) gdb command.
+
+You can remove the breakpoints via the [ldel](#ldel) gdb command.
 
 [Back to TOC](#table-of-contents)
 
