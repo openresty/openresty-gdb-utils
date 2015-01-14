@@ -15,6 +15,10 @@ err = gdbutils.err
 out = gdbutils.out
 warn = gdbutils.warn
 
+if sys.version_info[0] >= 3:  # Python 3K
+    global xrange
+    xrange = range
+
 def LJ_TNIL():
     return ~newval("unsigned int", 0)
 
@@ -456,7 +460,7 @@ def lj_debug_dumpstack(L, T, depth, base, full):
                     nf = nextframe
                     if not nf:
                         nf = L['top']
-                    for slot in xrange(1, nf - frame):
+                    for slot in xrange(1, int(nf - frame)):
                         tv = frame + slot
                         if debug_varname(pt, pc, slot - 1):
                             dump_tvalue(tv)
@@ -472,8 +476,9 @@ def lj_debug_dumpstack(L, T, depth, base, full):
     return bt
 
 def G2GG(gl):
-    return (gl.cast(typ("char*")) - typ("GG_State")['g'].bitpos / 8) \
-            .cast(typ("GG_State*"))
+    #print(type(typ("GG_State")['g'].bitpos))
+    diff = gl.cast(typ("char*")) - int(typ("GG_State")['g'].bitpos / 8)
+    return diff.cast(typ("GG_State*"))
 
 def G2J(gl):
     return G2GG(gl)['J'].address
@@ -2445,10 +2450,10 @@ Usage: lgcstat"""
 
         self.init_sizeof()
         g = G(L)
-        ocnt = [ 0 for i in range(~LJ_TNUMX())]
-        ototal_sz = [0 for i in range(~LJ_TNUMX())]
-        omax = [0 for i in range(~LJ_TNUMX())]
-        omin = [0x7fffffff for i in range(~LJ_TNUMX())]
+        ocnt = [ 0 for i in range(int(~LJ_TNUMX()))]
+        ototal_sz = [0 for i in range(int(~LJ_TNUMX()))]
+        omax = [0 for i in range(int(~LJ_TNUMX()))]
+        omin = [0x7fffffff for i in range(int(~LJ_TNUMX()))]
 
         # step 1: Go through all non-string objects
         o = gcref(g['gc']['root'])
@@ -2462,7 +2467,7 @@ Usage: lgcstat"""
             o = gcref(o['gch']['nextgc'])
 
         # step 2: Go through strings
-        for i in range(0, 1 + g['strmask']):
+        for i in range(0, int(1 + g['strmask'])):
             o = gcref(g['strhash'][i])
             ty = int(~LJ_TSTR());
             while o:
@@ -2487,7 +2492,7 @@ Usage: lgcstat"""
         ty_name = ["str", "upval", "thread", "proto", "func", "trace", "cdata",
                    "tab", "udata"]
         total_sz = 0
-        for i in range(~LJ_TNUMX() - ~LJ_TSTR()):
+        for i in range(int(~LJ_TNUMX() - ~LJ_TSTR())):
             idx = int(i + ~LJ_TSTR())
             if ocnt[idx] == 0:
                omin[idx] = 0
@@ -2968,7 +2973,7 @@ class lgcpath(lgcstat):
         # TODO: check if key and/or value is weak
 
         # Loop over elements of array part
-        for i in xrange(tab['asize']):
+        for i in xrange(int(tab['asize'])):
             tv = tvref(tab['array'])[i].address
             if tvisgcv(tv):
                 self.obj_annot[tabaddr] = ((2<<30)|i)
@@ -2978,7 +2983,7 @@ class lgcpath(lgcstat):
         hmask = tab['hmask']
         if hmask > 1:
             node_ptr = noderef(tab['node'])
-            for i in range(hmask + 1):
+            for i in range(int(hmask + 1)):
                 n = node_ptr[i].address
                 if not tvisnil(n['val'].address):
                     tv = n['key']
@@ -3003,12 +3008,12 @@ class lgcpath(lgcstat):
         if isluafunc(fn):
             self.dfs(funcproto(fn), g)
             uvptr = fn['l']['uvptr']
-            for i in range(fn['l']['nupvalues']):
+            for i in range(int(fn['l']['nupvalues'])):
                 self.obj_annot[fnaddr] = (2<<30) | i
                 self.dfs(gcref(uvptr[i])['uv'].address, g)
         else:
             uvptr = fn['c']['upvalue'][0].address
-            for i in range(fn['c']['nupvalues']):
+            for i in range(int(fn['c']['nupvalues'])):
                 self.obj_annot[fnaddr] = (2<<30) | i
                 self.visit_tval(uvptr[i], g)
 
