@@ -864,7 +864,7 @@ To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line arg
 
     make CCDEBUG=-g
 
-Also, you are required to use gdb 7.6+ with python support enabled.
+Also, you are required to use gdb 7.6+ with python 2.7+ support enabled.
 
 [Back to TOC](#table-of-contents)
 
