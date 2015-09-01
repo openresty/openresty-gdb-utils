@@ -917,19 +917,39 @@ def dump_table(t):
             out("\tvalue:\n")
             dump_tvalue(v)
 
+def dump_udata(ud, data=False):
+    t = ud['udtype']
+    out("\t\tudata type: %s\n" % udata_types[int(t)])
+    out("\t\t      payload len: %d\n" % int(ud['len']))
+    out("\t\t      payload ptr: 0x%x\n" % ptr2int(ud + 1))
+    if int(t) == UDTYPE_FFI_CLIB:
+        cl = uddata(ud).cast(typ("CLibrary*"))
+        out("\t\t      CLibrary handle: (void*)0x%x\n" % \
+                ptr2int(cl['handle']))
+        out("\t\t      CLibrary cache: (GCtab*)0x%x\n" \
+                % ptr2int(cl['cache']))
+
+    if data and int(t) == UDTYPE_USERDATA:
+        len = int(ud['len'])
+        p = uddata(ud).cast(typ("char *"))
+        printlen = min(len, 48)
+        out("\t\t      payload header: \"")
+        for i in range(printlen):
+            #if i in range(32, 126):
+            c = p[i]
+            if c >= 32 and c <= 126 : #in range(32, 126):
+                out("%c" % c)
+            else:
+                out(".")
+
+        if printlen < len:
+            out(" ...")
+
+        out("\"\n")
+
 def dump_tvalue(o, deep=False):
     if tvisudata(o):
-        ud = udataV(o)
-        t = ud['udtype']
-        out("\t\tudata type: %s\n" % udata_types[int(t)])
-        out("\t\t      payload len: %d\n" % int(ud['len']))
-        out("\t\t      payload ptr: 0x%x\n" % ptr2int(ud + 1))
-        if int(t) == UDTYPE_FFI_CLIB:
-            cl = uddata(ud).cast(typ("CLibrary*"))
-            out("\t\t      CLibrary handle: (void*)0x%x\n" % \
-                    ptr2int(cl['handle']))
-            out("\t\t      CLibrary cache: (GCtab*)0x%x\n" \
-                    % ptr2int(cl['cache']))
+        dump_udata(udataV(o))
 
     elif tvisstr(o):
         gcs = strV(o)
@@ -1047,6 +1067,10 @@ Usage: lval tv"""
 
         if typstr == "GCtab *":
             dump_table(o)
+            return
+
+        if typstr == "GCudata *":
+            dump_udata(o, True)
             return
 
         m = re.search(r'TValue', typstr)
@@ -2650,7 +2674,7 @@ class lgcpath(lgcstat):
             self.objsize = gdb.parse_and_eval(argv[0])
             self.obj_ty = argv[1]
         else:
-            raise gdb.GdbError("Usage: lgcpath objsize [str|tab|thr|upval|func|tr]")
+            raise gdb.GdbError("Usage: lgcpath objsize [udata|str|tab|thr|upval|func|tr]")
 
         if not self.objsize:
             raise gdb.GdbError("object size is not specified")
@@ -2877,6 +2901,7 @@ class lgcpath(lgcstat):
             (ty == ~LJ_TTHREAD() and self.obj_ty == "thr") or
             (ty == ~LJ_TUPVAL() and self.obj_ty == "upval") or
             (ty == ~LJ_TFUNC() and self.obj_ty == "func") or
+            (ty == ~LJ_TUDATA() and self.obj_ty == "udata") or
             (ty == ~LJ_TTRACE() and self.obj_ty == "tr")):
              return True
 
