@@ -3039,7 +3039,7 @@ class lgcpath(lgcstat):
         else:
             uvptr = fn['c']['upvalue'][0].address
             for i in range(int(fn['c']['nupvalues'])):
-                self.obj_annot[fnaddr] = (2<<30) | i
+                self.obj_annot[fnaddr] = (1<<30) | i
                 self.visit_tval(uvptr[i], g)
 
         self.dfs(tabref(fn['c']['env']), g)
