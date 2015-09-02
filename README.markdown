@@ -614,7 +614,7 @@ lgcpath
 
 **file** *luajit21.py*
 
-Finds large live LuaJIT GC objects with the size threshold (in bytes) and a type name ("tab", "str", "tab", "thr", "upval", "func", "tr"). The type name argument is optional. Also prints out the full referencing path from the GC roots to the object being matched.
+Finds large live LuaJIT GC objects with the size threshold (in bytes) and a type name ("udata", "str", "tab", "thr", "upval", "func", "tr"). The type name argument is optional. Also prints out the full referencing path from the GC roots to the object being matched.
 
 For example, finds all the live Lua tables whose size has exceeded 100KB:
 
