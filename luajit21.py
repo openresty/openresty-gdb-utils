@@ -720,7 +720,7 @@ def lstr2str(gcs):
 
 def lj_tab_getstr(t, k):
     klen = len(k)
-    hmask = t['hmask']
+    hmask = int(t['hmask'])
     node = noderef(t['node'])
     for i in xrange(hmask + 1):
         nn = node[i]
@@ -896,8 +896,8 @@ def noderef(r):
     return mref(r, "Node")
 
 def dump_table(t):
-    narr = t['asize']
-    nhmask = t['hmask']
+    narr = int(t['asize'])
+    nhmask = int(t['hmask'])
     out("table (GCtab*)%#x (narr=%d, nrec=%d):\n" % (ptr2int(t), narr, nhmask))
     arr = tvref(t['array'])
     for i in xrange(narr):
@@ -2725,7 +2725,7 @@ class lgcpath(lgcstat):
         self.visited[ptr2int(n)] = 1
 
     def print_str(self, str, g):
-        len = str['len']
+        len = int(str['len'])
         out("->str \"")
 
         # print the content
@@ -3039,7 +3039,7 @@ class lgcpath(lgcstat):
         else:
             uvptr = fn['c']['upvalue'][0].address
             for i in range(int(fn['c']['nupvalues'])):
-                self.obj_annot[fnaddr] = (2<<30) | i
+                self.obj_annot[fnaddr] = (1<<30) | i
                 self.visit_tval(uvptr[i], g)
 
         self.dfs(tabref(fn['c']['env']), g)
