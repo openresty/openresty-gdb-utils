@@ -28,7 +28,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
             r = gdb.parse_and_eval(argv[0])
 
         if not r:
-            print "r empty"
+            print("r empty")
             return
 
         ascii_list = []
@@ -36,7 +36,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
         first = None
         hc = r['main']['http_connection'];
         request_line = r['main']['request_line']
-        #print "hc['nbusy']=%s" % hc['nbusy']
+        #print("hc['nbusy']=%s" % hc['nbusy'])
         if hc['nbusy']:
             size = 0
             for i in xrange(int(hc['nbusy'])):
@@ -57,13 +57,13 @@ Usage: ngx-raw-req <ngx_http_request>"""
         else:
             b = r['main']['header_in']
             if not b:
-                print "not found"
+                print("not found")
             size = r['main']['header_end'] + 2 - request_line['data']
 
-        #print "size: %s" % size
+        #print("size: %s" % size)
         if hc['nbusy']:
-            #print "hc['nbusy']"
-            #print "first %s" % first
+            #print("hc['nbusy']")
+            #print("first %s" % first)
             last = data
             found = 0
             for i in xrange(int(hc['nbusy'])):
@@ -81,8 +81,8 @@ Usage: ngx-raw-req <ngx_http_request>"""
                 else:
                     pos = b['pos']
 
-                #print "r['main']['header_end']= %s" % r['main']['header_end']
-                #print "b['start']= %s" % b['start']
+                #print("r['main']['header_end']= %s" % r['main']['header_end'])
+                #print("b['start']= %s" % b['start'])
 
                 if b == first:
                     data = request_line['data']
@@ -91,7 +91,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
                     data = b['start']
                     length = pos - b['start']
 
-                #print "length %s" % length
+                #print("length %s" % length)
 
                 for i in xrange(length):
                     p = int(data[i])
@@ -109,16 +109,16 @@ Usage: ngx-raw-req <ngx_http_request>"""
                     ch = ascii_list.pop()
 
                 res = ''.join(map(chr, ascii_list))
-                print res
+                print(res)
 
                 if b == r['main']['header_in']:
                     break
 
         else:
-            #print "size:%d" % int(size)
+            #print("size:%d" % int(size))
             data = request_line['data']
-            #print "data type:%s" % data.type
-            #print data
+            #print("data type:%s" % data.type)
+            #print(data)
             size = int(size)
             for i in xrange(size):
                 p = int(data[i])
@@ -131,7 +131,7 @@ Usage: ngx-raw-req <ngx_http_request>"""
                 else:
                     ascii_list.append(p)
             res = ''.join(map(chr, ascii_list))
-            print res
+            print(res)
         return
 
 NgxRawReq()
