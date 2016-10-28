@@ -1,7 +1,7 @@
 Name
 ====
 
-GDB utilities for Nginx, ngx_lua, LuaJIT, and etc.
+openresty-gdb-utils - GDB Utilities for OpenResty (including Nginx, ngx\_lua, LuaJIT, and more)
 
 Table of Contents
 =================
@@ -43,7 +43,7 @@ Table of Contents
 Status
 ======
 
-This is still under early development.
+Mature and proven.
 
 Synopsis
 ========
