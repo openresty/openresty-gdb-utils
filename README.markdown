@@ -103,7 +103,9 @@ Synopsis
 Description
 ===========
 
-This toolkit provides various gdb extension commands for analyzing core dump files for nginx and/or luajit.
+This toolkit provides various gdb extension commands for analyzing core dump files for OpenResty (including nginx, luajit, ngx\_lua, and many other components).
+
+Many of the gdb extension tools here have been successfully used to track down many weird bugs in OpenResty and LuaJIT cores just by analyzing core dump files.
 
 [Back to TOC](#table-of-contents)
 
