@@ -911,7 +911,7 @@ This module is licensed under the BSD license.
 
 Copyright (C) 2013-2016, by Guanlan Dai.
 
-Copyright (C) 2013-2016, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
+Copyright (C) 2013-2017, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, OpenResty Inc.
 
 All rights reserved.
 
