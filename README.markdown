@@ -10,6 +10,7 @@ Table of Contents
 * [Status](#status)
 * [Synopsis](#synopsis)
 * [Description](#description)
+* [Prerequisites](#prerequisites)
 * [Commands](#commands)
     * [lbt](#lbt)
     * [lvmst](#lvmst)
@@ -34,7 +35,6 @@ Table of Contents
     * [lrb](#lrb)
     * [linfob](#linfob)
     * [ldel](#ldel)
-* [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
 * [Copyright and License](#copyright-and-license)
@@ -106,6 +106,19 @@ Description
 This toolkit provides various gdb extension commands for analyzing core dump files for OpenResty (including nginx, luajit, ngx\_lua, and many other components).
 
 Many of the gdb extension tools here have been successfully used to track down many weird bugs in OpenResty and LuaJIT cores just by analyzing core dump files.
+
+[Back to TOC](#table-of-contents)
+
+Prerequisites
+=============
+
+You need to enable the debuginfo in your LuaJIT build (and Nginx build if Nginx is involved).
+
+To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line argument to the `make` command, as in
+
+    make CCDEBUG=-g
+
+Also, you are required to use gdb 7.6+ with python 2.7+ support enabled.
 
 [Back to TOC](#table-of-contents)
 
@@ -857,18 +870,6 @@ No Lua breakpoints.
 
 [Back to TOC](#table-of-contents)
 
-Prerequisites
-=============
-
-You need to enable the debuginfo in your LuaJIT build (and Nginx build if Nginx is involved).
-
-To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line argument to the `make` command, as in
-
-    make CCDEBUG=-g
-
-Also, you are required to use gdb 7.6+ with python 2.7+ support enabled.
-
-[Back to TOC](#table-of-contents)
 
 Installation
 ============
