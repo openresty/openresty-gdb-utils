@@ -10,6 +10,8 @@ Table of Contents
 * [Status](#status)
 * [Synopsis](#synopsis)
 * [Description](#description)
+* [Prerequisites](#prerequisites)
+* [Installation](#installation)
 * [Commands](#commands)
     * [lbt](#lbt)
     * [lvmst](#lvmst)
@@ -34,8 +36,6 @@ Table of Contents
     * [lrb](#lrb)
     * [linfob](#linfob)
     * [ldel](#ldel)
-* [Prerequisites](#prerequisites)
-* [Installation](#installation)
 * [Authors](#authors)
 * [Copyright and License](#copyright-and-license)
 * [See Also](#see-also)
@@ -106,6 +106,45 @@ Description
 This toolkit provides various gdb extension commands for analyzing core dump files for OpenResty (including nginx, luajit, ngx\_lua, and many other components).
 
 Many of the gdb extension tools here have been successfully used to track down many weird bugs in OpenResty and LuaJIT cores just by analyzing core dump files.
+
+[Back to TOC](#table-of-contents)
+
+Prerequisites
+=============
+
+You need to enable the debuginfo in your LuaJIT build (and Nginx build if Nginx is involved).
+
+To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line argument to the `make` command, as in
+
+    make CCDEBUG=-g
+
+Also, you are required to use gdb 7.6+ with python 2.7+ support enabled.
+
+[Back to TOC](#table-of-contents)
+
+
+Installation
+============
+
+See [Prerequisites](#prerequisites) first.
+
+And then
+
+1. check out this project locally.
+2. add the following lines to your `~/.gdbinit` (you *must* change the `/path/to` part to the real path):
+
+```gdb
+directory /path/to/nginx-gdb-utils
+
+py import sys
+py sys.path.append("/path/to/nginx-gdb-utils")
+
+source luajit20.gdb
+source ngx-lua.gdb
+source luajit21.py
+source ngx-raw-req.py
+set python print-stack full
+```
 
 [Back to TOC](#table-of-contents)
 
@@ -853,44 +892,6 @@ Remove entry breakpoint on (GCfunc*)0x40007e28 at @a.lua:5
 
 (gdb) linfob
 No Lua breakpoints.
-```
-
-[Back to TOC](#table-of-contents)
-
-Prerequisites
-=============
-
-You need to enable the debuginfo in your LuaJIT build (and Nginx build if Nginx is involved).
-
-To enable debuginfo in your LuaJIT build, pass the `CCDEBUG=-g` command-line argument to the `make` command, as in
-
-    make CCDEBUG=-g
-
-Also, you are required to use gdb 7.6+ with python 2.7+ support enabled.
-
-[Back to TOC](#table-of-contents)
-
-Installation
-============
-
-See [Prerequisites](#prerequisites) first.
-
-And then
-
-1. check out this project locally.
-2. add the following lines to your `~/.gdbinit` (you *must* change the `/path/to` part to the real path):
-
-```gdb
-directory /path/to/nginx-gdb-utils
-
-py import sys
-py sys.path.append("/path/to/nginx-gdb-utils")
-
-source luajit20.gdb
-source ngx-lua.gdb
-source luajit21.py
-source ngx-raw-req.py
-set python print-stack full
 ```
 
 [Back to TOC](#table-of-contents)
