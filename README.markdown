@@ -881,10 +881,10 @@ And then
 2. add the following lines to your `~/.gdbinit` (you *must* change the `/path/to` part to the real path):
 
 ```gdb
-directory /path/to/nginx-gdb-utils
+directory /path/to/openresty-gdb-utils
 
 py import sys
-py sys.path.append("/path/to/nginx-gdb-utils")
+py sys.path.append("/path/to/openresty-gdb-utils")
 
 source luajit20.gdb
 source ngx-lua.gdb
