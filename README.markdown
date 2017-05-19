@@ -26,6 +26,7 @@ Table of Contents
     * [lproto](#lproto)
     * [lfunc](#lfunc)
     * [luv](#luv)
+    * [lbc](#lbc)
     * [lgc](#lgc)
     * [lgcstat](#lgcstat)
     * [lgcpath](#lgcpath)
@@ -551,6 +552,42 @@ upvalue "ffi_gc": value=(TValue*)0x4188de88 value_type=function closed=1
 ```
 
 You can get the `GCfunc` pointer value via the [lfunc](#lfunc) command.
+
+[Back to TOC](#table-of-contents)
+
+lbc
+---
+
+Dumps the bytecode of the specified bytecode address (PC) range.
+
+The bytecode address (or PC) range can be obtained by using the [lval](#lval) command
+upon a `GCproto` object. For example:
+
+```
+ lval (GCproto*)0x4030b8f8
+    proto definition: @/usr/local/openresty-debug/lualib/resty/lrucache.lua:82
+    bytecode range: 0x4030b938 0x4030b960
+```
+
+And we feed this range into the `lbc` command to get the full bytecode dump for this
+GCproto object:
+
+```
+(rr) lbc 0x4030b938 0x4030b960
+(GCproto*)0x4030b8f8
+-- BEGIN BYTECODE -- lrucache.lua:82
+0000    FUNCF    4
+0001    TGETS    1   0   0  ; "prev"
+0002    TGETS    2   0   1  ; "next"
+0003    TSETS    1   2   0  ; "prev"
+0004    TSETS    2   1   1  ; "next"
+0005    UGET     3   0      ; NULL
+0006    TSETS    3   0   0  ; "prev"
+0007    UGET     3   0      ; NULL
+0008    TSETS    3   0   1  ; "next"
+0009    RET0     0   1
+-- END BYTECODE -- lrucache.lua:92
+```
 
 [Back to TOC](#table-of-contents)
 
