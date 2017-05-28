@@ -2543,15 +2543,24 @@ Usage: lgcstat"""
         out("elapsed: %f sec\n" % elapsed)
 
     def get_jit_state_sz(self, J):
+        """
+        Return the total size of those non-GC objects that jit_State points
+        to.
+        """
         sz = 0
 
-        # list of 64-bit constants
-        k = mref(J['k64'], "K64Array")
-        len = 0;
-        while k:
-            len += 1
-            k = mref(k['next'], "K64Array")
-        sz = typ("K64Array").sizeof * len
+        # 64-bit constants:
+        #  old revision of luajit: linked list of K64Array
+        #  new revision of luajit: array of TValue, a field of jit_State
+        try:
+            k = mref(J['k64'], "K64Array")
+            len = 0;
+            while k:
+                len += 1
+                k = mref(k['next'], "K64Array")
+            sz = typ("K64Array").sizeof * len
+        except:
+            pass
 
         sz += J['sizesnapmap'] * typ("SnapEntry").sizeof
         sz += J['sizesnap'] * typ("SnapShot").sizeof
