@@ -542,17 +542,17 @@ Usage: lbt [L]
 
             if not base:
                 raise gdb.GdbError("jit base is NULL (trace #%d)" % int(T['traceno']))
-            bt = lj_debug_dumpstack(L, T, 30, base, full)
+            lj_debug_dumpstack(L, T, 30, base, full)
 
         else:
             if vmstate == ~LJ_VMST_EXIT:
                 base = tvref(g['jit_base'])
                 if base:
-                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
+                    lj_debug_dumpstack(L, 0, 30, base, full)
 
                 else:
                     base = L['base']
-                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
+                    lj_debug_dumpstack(L, 0, 30, base, full)
 
             else:
                 if vmstate == ~LJ_VMST_INTERP and not L['cframe']:
@@ -569,7 +569,7 @@ Usage: lbt [L]
                     else:
                         base = L['base']
 
-                    bt = lj_debug_dumpstack(L, 0, 30, base, full)
+                    lj_debug_dumpstack(L, 0, 30, base, full)
 
                 else:
                     out("No Lua code running.\n")
@@ -892,9 +892,6 @@ def tvislightud(o):
 def intV(o):
     return o['i'].cast(typ("int32_t"))
 
-def noderef(r):
-    return mref(r, "Node")
-
 def dump_table(t):
     narr = int(t['asize'])
     nhmask = int(t['hmask'])
@@ -1036,8 +1033,6 @@ Usage: lval tv"""
         if not o:
             raise gdb.GdbError("table argument empty")
             return
-
-        mL = get_global_L()
 
         typstr = str(o.type)
         if typstr == "GCstr *":
@@ -1242,9 +1237,6 @@ def tvisthread(o):
 def threadV(o):
     # &gcval(o)->th
     return gcval(o)['th'].address
-
-def tabref(r):
-    return gcref(r)['tab'].address
 
 def funcV(o):
     return gcval(o)['fn'].address
@@ -1857,9 +1849,6 @@ def lj_ir_kvalue(ir):
 IRT_TYPE = 0x1f
 IRT_NUM = 14
 
-def irt_type(t):
-    return (t['irt'] & IRT_TYPE).cast(typ("IRType"))
-
 def tracek(T, idx):
     ref = idx + REF_BIAS
     ir = T['ir'][ref].address
@@ -2173,7 +2162,6 @@ def tracesnap(T, sn):
         snap = T['snap'][sn].address
         map = T['snapmap'][snap['mapofs']].address
         nent = snap['nent']
-        size = nent + 2
         t = []
         int32_t = typ("int32_t")
         t.append(snap['ref'].cast(int32_t) - REF_BIAS)
@@ -2204,7 +2192,6 @@ def traceir(T, ins):
     ir = T['ir'][ref].address
     m = ir_mode[ir['o']]
     ot = ir['ot']
-    ofs = 0
     op1 = ir['op1'].cast(typ("int32_t")) - (irm_op1(m) == IRMref and REF_BIAS or 0)
     op2 = ir['op2'].cast(typ("int32_t")) - (irm_op2(m) == IRMref and REF_BIAS or 0)
     ridsp = ir['prev']
@@ -2725,7 +2712,7 @@ class lgcpath(lgcstat):
 
     def is_visited(self, n):
         try:
-            dummy = self.visited[ptr2int(n)]
+            self.visited[ptr2int(n)]
             return 1
         except:
             return 0
@@ -3893,7 +3880,7 @@ Usage: lrb <spec>"""
             found = False
             for hit in res:
                 fn = hit[0]
-                path = hit[1]
+                #path = hit[1]
                 #out("Found function (GCfunc*)%#x at %s:%d\n" \
                     #% (ptr2int(fn), path, lineno))
 
