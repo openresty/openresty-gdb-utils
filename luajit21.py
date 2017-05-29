@@ -892,9 +892,6 @@ def tvislightud(o):
 def intV(o):
     return o['i'].cast(typ("int32_t"))
 
-def noderef(r):
-    return mref(r, "Node")
-
 def dump_table(t):
     narr = int(t['asize'])
     nhmask = int(t['hmask'])
@@ -1242,9 +1239,6 @@ def tvisthread(o):
 def threadV(o):
     # &gcval(o)->th
     return gcval(o)['th'].address
-
-def tabref(r):
-    return gcref(r)['tab'].address
 
 def funcV(o):
     return gcval(o)['fn'].address
@@ -1856,9 +1850,6 @@ def lj_ir_kvalue(ir):
 
 IRT_TYPE = 0x1f
 IRT_NUM = 14
-
-def irt_type(t):
-    return (t['irt'] & IRT_TYPE).cast(typ("IRType"))
 
 def tracek(T, idx):
     ref = idx + REF_BIAS
