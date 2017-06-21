@@ -3,7 +3,6 @@ import sys
 import gdb
 import gdbutils
 import ngxlua
-import string
 import re
 import time
 
@@ -1116,7 +1115,7 @@ Usage: lproto file lineno"""
                     name = proto_chunkname(pt)
                     if name:
                         path = lstr2str(name)
-                        if string.find(path, fname) >= 0:
+                        if fname in path:
                             out("Found Lua proto (GCproto*)0x%x at %s:%d\n" \
                                     % (ptr2int(pt), path, lineno))
             p = o['gch']['nextgc'].address
@@ -1185,7 +1184,7 @@ def find_lfunc_by_src_loc(fname, lineno):
                     #print "len: %d\n" % int(name['len'])
                     if name:
                         path = lstr2str(name)
-                        if string.find(path, fname) >= 0:
+                        if fname in path:
                             res.append((fn, path))
         p = o['gch']['nextgc'].address
     return res
