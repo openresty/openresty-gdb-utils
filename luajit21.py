@@ -331,6 +331,23 @@ def cframe_raw(cf):
 def proto_varinfo(pt):
     return mref(pt['varinfo'], 'uint8_t')
 
+def lua_gettop(L):
+    return int(L['top'] - L['base'])
+
+def stkindex2adr(L, idx):
+    """
+    Given L and a stack index, returns the corresponding TValue object.
+    Does not work on pseudo-indexes!
+    """
+    if idx > 0:
+        o = L['base'] + (idx - 1)
+        return o if o <= L['top'] else None
+    else:
+        # negative index
+        assert idx != 0
+        assert -idx <= L['top'] - L['base']
+        return L['top'] + idx
+
 VARNAME_END = 0
 VARNAME__MAX = 7
 
@@ -4023,3 +4040,27 @@ Usage: ltb"""
 
 ltb()
 
+class ldumpstack(gdb.Command):
+    """This command takes a lua_State pointer and dumps all contents from
+it's stack.
+Usage: ldumpstack (lua_State *)"""
+
+    def __init__ (self):
+        super (ldumpstack, self).__init__("ldumpstack", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("1 argument expected!\nusage: ltb <lua_State *>")
+
+        L = gdbutils.parse_ptr(argv[0], "lua_State*")
+
+        top = lua_gettop(L)
+
+        for x in range(top):
+            out("index = %d\n" % (x + 1))
+            tv = stkindex2adr(L, x + 1)
+            gdb.execute("lval 0x%x" % ptr2int(tv))
+
+ldumpstack()
