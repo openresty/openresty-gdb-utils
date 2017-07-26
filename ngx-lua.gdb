@@ -81,3 +81,51 @@ define ngx-lua-uthreads
         printf "request already exited with code %d.\n", $ctx->exit_code
     end
 end
+
+define visit-timer-node
+    set $index = 1
+    eval "set $stack_%d = (ngx_rbtree_node_t *) $arg0", $index
+
+    while $index > 0
+        eval "set $temp = $stack_%d", $index
+        set $index = $index - 1
+
+        if $temp != $sentinel
+            set $ev = (ngx_event_t *) ((char *) $temp - (int) &((ngx_event_t *) 0)->timer)
+            set $is_lua_timer = $ev->handler == ngx_http_lua_timer_handler
+
+            printf "timer node key=%lu, is_lua_timer=%d, in %d msec\n", \
+                   $temp->key, \
+                   $ev->handler == ngx_http_lua_timer_handler, \
+                   ngx_current_msec - $temp->key
+
+            if $is_lua_timer
+                set $tctx = (ngx_http_lua_timer_ctx_t *) $ev->data
+                printf "coroutine=%p. stack contents:\n", $tctx->co
+
+                ldumpstack $tctx->co
+            end
+
+            printf "\n"
+
+            set $index = $index + 1
+            eval "set $stack_%d = $temp->left", $index
+
+            set $index = $index + 1
+            eval "set $stack_%d = $temp->right", $index
+        end
+    end
+end
+
+define dump-all-timers
+    set $sentinel = ngx_event_timer_rbtree.sentinel
+    set $root = ngx_event_timer_rbtree.root
+
+    printf "now is %lu\n\n", ngx_current_msec
+
+    if $sentinel != $root
+        visit-timer-node $root $sentinel
+    else
+        printf "timer tree empty\n"
+    end
+end

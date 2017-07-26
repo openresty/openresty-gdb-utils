@@ -4023,3 +4023,27 @@ Usage: ltb"""
 
 ltb()
 
+class ldumpstack(gdb.Command):
+    """This command takes a lua_State pointer and dumps all contents from
+it's stack.
+Usage: ldumpstack (lua_State *)"""
+
+    def __init__ (self):
+        super (ldumpstack, self).__init__("ldumpstack", gdb.COMMAND_USER)
+
+    def invoke (self, args, from_tty):
+        argv = gdb.string_to_argv(args)
+
+        if len(argv) != 1:
+            raise gdb.GdbError("usage: ltb <lua_State *>")
+
+        top = int(gdb.execute("printf \"%%d\", lua_gettop(%s)" % argv[0],
+                              to_string=True))
+
+        for x in range(top):
+            out("index = %d\n" % (x + 1))
+            tv = gdb.execute("printf \"%%p\", index2adr(%s, %d)"
+                             % (argv[0], x + 1), to_string=True)
+            gdb.execute("lval " + tv)
+
+ldumpstack()

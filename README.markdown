@@ -35,6 +35,8 @@ Table of Contents
     * [lrb](#lrb)
     * [linfob](#linfob)
     * [ldel](#ldel)
+    * [ldumpstack](#ldumpstack)
+    * [dump-all-timers](#dump-all-timers)
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Authors](#authors)
@@ -890,6 +892,74 @@ Remove entry breakpoint on (GCfunc*)0x40007e28 at @a.lua:5
 
 (gdb) linfob
 No Lua breakpoints.
+```
+
+[Back to TOC](#table-of-contents)
+
+ldumpstack
+----------
+
+**syntax:** *ldumpstack <lua_State &ast;>*
+
+**file** *luajit21.py*
+
+Shows the stack content of the given `lua_State` struct.
+
+```
+(gdb) ldumpstack
+usage: ltb <lua_State *>
+(gdb) ldumpstack  0x40086c58
+index = 1
+		function =init_worker_by_lua:2: (GCfunc*)0x40085c30
+index = 2
+		string: "a" (len 1)
+index = 3
+		string: "b" (len 1)
+index = 4
+		string: "c" (len 1)
+```
+
+[Back to TOC](#table-of-contents)
+
+dump-all-timers
+---------------
+
+**syntax:** *dump-all-timers*
+
+**file** *ngx-lua.gdb*
+
+Dump all timers from the timer tree inside the NGINX worker.
+If the timer was created with `ngx.timer.*` Lua API, also dumps the
+function that will be executed by the timer with their arguments.
+
+All timestamps are in milliseconds. The "in" value is calculated as
+`now - timer's timestamp`. A zero or negative value means the timer should
+be fired.
+
+```
+(gdb) dump-all-timers
+now is 1501052272091
+
+timer node key=1501052274087, is_lua_timer=1, in -1996 msec
+coroutine=0x400869e0. stack contents:
+index = 1
+		function =init_worker_by_lua:6: (GCfunc*)0x40085a68
+
+timer node key=1501052275086, is_lua_timer=1, in -2995 msec
+coroutine=0x40086790. stack contents:
+index = 1
+		function =init_worker_by_lua:10: (GCfunc*)0x40085f78
+
+timer node key=1501052273091, is_lua_timer=1, in -1000 msec
+coroutine=0x40086c58. stack contents:
+index = 1
+		function =init_worker_by_lua:2: (GCfunc*)0x40085c30
+index = 2
+		string: "a" (len 1)
+index = 3
+		string: "b" (len 1)
+index = 4
+		string: "c" (len 1)
 ```
 
 [Back to TOC](#table-of-contents)
