@@ -3296,7 +3296,7 @@ Usage: lthreadpc <L>"""
         if L['cframe'] == null() and L['status'] <= LUA_YIELD:
             pc = (L['base'].cast(typ("char*")) - 4).cast(typ("uint32_t*")).dereference()
             out("next PC: (BCIns*)%#x\n" % pc)
-            locate_pc(pc.cast(typ("BCIns*")))
+            locate_pc(pc.cast(typ("BCIns*")), False)
         else:
             raise gdb.GdbError("Lua thread in bad state")
 
