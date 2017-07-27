@@ -4061,6 +4061,6 @@ Usage: ldumpstack (lua_State *)"""
         for x in range(top):
             out("index = %d\n" % (x + 1))
             tv = stkindex2adr(L, x + 1)
-            gdb.execute("lval " + hex(tv))
+            gdb.execute("lval 0x%x" % ptr2int(tv))
 
 ldumpstack()
