@@ -906,7 +906,7 @@ ldumpstack
 Shows the stack content of the given `lua_State` struct.
 
 ```
-(gdb) ldumpstack
+1 argument expected!
 usage: ltb <lua_State *>
 (gdb) ldumpstack  0x40086c58
 index = 1
@@ -940,17 +940,17 @@ be fired.
 (gdb) dump-all-timers
 now is 1501052272091
 
-timer node key=1501052274087, is_lua_timer=1, in -1996 msec
+timer node key=1501052274087, is_lua_timer=1, in 1996 msec
 coroutine=0x400869e0. stack contents:
 index = 1
 		function =init_worker_by_lua:6: (GCfunc*)0x40085a68
 
-timer node key=1501052275086, is_lua_timer=1, in -2995 msec
+timer node key=1501052275086, is_lua_timer=1, in 2995 msec
 coroutine=0x40086790. stack contents:
 index = 1
 		function =init_worker_by_lua:10: (GCfunc*)0x40085f78
 
-timer node key=1501052273091, is_lua_timer=1, in -1000 msec
+timer node key=1501052273091, is_lua_timer=1, in 1000 msec
 coroutine=0x40086c58. stack contents:
 index = 1
 		function =init_worker_by_lua:2: (GCfunc*)0x40085c30
