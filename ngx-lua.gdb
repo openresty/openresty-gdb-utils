@@ -97,7 +97,7 @@ define visit-timer-node
             printf "timer node key=%lu, is_lua_timer=%d, in %d msec\n", \
                    $temp->key, \
                    $ev->handler == ngx_http_lua_timer_handler, \
-                   ngx_current_msec - $temp->key
+                   $temp->key - ngx_current_msec
 
             if $is_lua_timer
                 set $tctx = (ngx_http_lua_timer_ctx_t *) $ev->data
