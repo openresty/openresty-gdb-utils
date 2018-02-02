@@ -2915,7 +2915,7 @@ class lgcpath(lgcstat):
         # print the size of last GC object in the path
         gco = self.gc_path[-1].cast(typ("GCobj*"))
         sz = self.get_obj_sz(g, gco)
-        out("sz:%d (GCobj*)%#x ->END\n" % (sz, gco))
+        out("sz:%d (GCobj*)%#x ->END\n" % (sz, ptr2int(gco)))
 
     def is_intersted_ty(self, ty):
         if not self.obj_ty:
