@@ -445,7 +445,8 @@ def lj_debug_dumpstack(L, T, depth, base, full):
                 bt += "%s:%d\n" % (path, line)
 
             elif isffunc(fn):
-                bt += "builtin#%d\n" % int(fn['c']['ffid'])
+                ffid = int(fn['c']['ffid'])
+                bt += "builtin#%d [%s]\n" % (ffid, ffnames[ffid])
 
             else:
                 cfunc = fn['c']['f']
