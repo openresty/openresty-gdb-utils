@@ -113,6 +113,10 @@ def get_global_L():
     if gL:
         return gL.value()
 
+    gL, _ = gdb.lookup_symbol("tarantool_L")
+    if gL:
+        return gL.value()
+
     cycle = gdb.lookup_global_symbol("ngx_cycle")
     if cycle:
         cycle = cycle.value()
