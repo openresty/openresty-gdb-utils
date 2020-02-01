@@ -46,7 +46,7 @@ Table of Contents
 Status
 ======
 
-Mature and proven.
+**IMPORTANT!!! This project is no longer maintained and our focus has been shifted to a much better dynamic tracing platform named [OpenResty XRay](https://openresty.com/en/xray). Existing users of the tools here are recommended to switch too.**
 
 Synopsis
 ========
@@ -114,6 +114,10 @@ Many of the gdb extension tools here have been successfully used to track down m
 
 Commands
 ========
+
+**IMPORTANT!!! The commands below are no longer maintained and our focus has been
+shifted to a much better dynamic tracing platform named
+[OpenResty XRay](https://openresty.com/en/xray). Existing users of the tools here are recommended to switch too.**
 
 The following gdb commands are supported:
 
