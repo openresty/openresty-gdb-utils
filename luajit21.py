@@ -323,7 +323,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
     pos = proto_bcpos(pt, ins) - 1
     if pos > pt['sizebc']:
         T = ((ins - 1).cast(typ("char*")) - \
-                typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
+                int(typ("GCtrace")['startins'].bitpos / 8)).cast(typ("GCtrace*"))
         #print("T: %d" % int(T['traceno']))
         try:
             pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
