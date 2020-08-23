@@ -167,11 +167,11 @@ def sizeof(typ):
     return gdb.parse_and_eval("sizeof(" + typ + ")")
 
 def gcref(r):
-    return r['gcptr32'].cast(typ("uintptr_t")).cast(typ("GCobj*"))
+    return r['gcptr64'].cast(typ("uintptr_t")).cast(typ("GCobj*"))
 
 def gcrefp(r, t):
     #((t *)(void *)(uintptr_t)(r).gcptr32)
-    return r['gcptr32'].cast(typ(t + "*"))
+    return r['gcptr64'].cast(typ(t + "*"))
 
 def frame_gc(frame):
     return gcref(frame['fr']['func'])
@@ -180,7 +180,7 @@ def obj2gco(v):
     return v.cast(typ("GCobj*"))
 
 def mref(r, t):
-    return r['ptr32'].cast(typ("uintptr_t")).cast(typ(t + "*"))
+    return r['ptr64'].cast(typ("uintptr_t")).cast(typ(t + "*"))
 
 def frame_pc(f):
     return mref(f['fr']['tp']['pcr'], "BCIns")
