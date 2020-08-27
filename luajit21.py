@@ -1605,6 +1605,10 @@ ircall = [
 "lj_tab_clear",
 "lj_tab_newkey",
 "lj_tab_len",
+"lj_tab_clone",
+"lj_tab_isarray",
+"lj_tab_nkeys",
+"lj_tab_isempty",
 "lj_gc_step_jit",
 "lj_gc_barrieruv",
 "lj_mem_newgco",
@@ -1640,6 +1644,9 @@ ircall = [
 "softfp_cmp",
 "softfp_i2d",
 "softfp_d2i",
+"lj_vm_sfmin",
+"lj_vm_sfmax",
+"lj_vm_tointg",
 "softfp_ui2d",
 "softfp_f2d",
 "softfp_d2ui",
@@ -1752,7 +1759,7 @@ def litname_SLOAD(mode):
         s += "I"
     return s
 
-irfield = [ "str.len", "func.env", "func.pc", "func.ffid", "thread.env", "tab.meta", "tab.array", "tab.node", "tab.asize", "tab.hmask", "tab.nomm", "udata.meta", "udata.udtype", "udata.file", "cdata.ctypeid", "cdata.ptr", "cdata.int", "cdata.int64", "cdata.int64_4" ]
+irfield = [ "str.len", "func.env", "func.pc", "func.ffid", "thread.env", "thread.exdata", "tab.meta", "tab.array", "tab.node", "tab.asize", "tab.hmask", "tab.nomm", "udata.meta", "udata.udtype", "udata.file", "cdata.ctypeid", "cdata.ptr", "cdata.int", "cdata.int64", "cdata.int64_4" ]
 
 def litname_irfield(mode):
     return irfield[int(mode)]
@@ -2128,16 +2135,22 @@ def fmtfunc(fn):
                 sym = "C:%s" % key
         return sym
 
-def formatk(tr, idx):
+def formatk(tr, idx, sn=None):
     #return "<k>"
     k, it, t, slot = tracek(tr, idx)
     #print("type: ", it)
     s = None
     if it == "number":
-        if k == 2 ** 52 + 2 ** 51:
+
+        if sn is None:
+            sn = 0;
+        if sn & 0x30000:
+            s = "contpc" if (sn & 0x20000)  else "ftsz"
+        elif k == 2 ** 52 + 2 ** 51:
             s = "bias"
         else:
-            #print("BEFORE")
+            # XXX
+            #s = format(0 < k and k < 0x1p-1026 and "%+a" or "%+.14g", k)
             s = "%+.14g" % k
 
     elif it == "string":
@@ -2161,17 +2174,22 @@ def formatk(tr, idx):
     elif it == "function":
         s = fmtfunc(k.cast(typ("GCfunc*")))
 
+    elif it == "table":
+        s = "{%#010x}" % k  #XXX 010 needed?
+
     elif it == "userdata":
         if t == 12:
             s = "userdata:%#x" % k
         else:
             s = "[%#010x]" % k
             if k == 0:
-                s = "[NULL]"
+                s = "NULL"
     elif t == 21:  # int64_t
-        s = str(k)
+        s = str(k) # s = sub(tostring(k), 1, -3) XXX remove last tow
         if s[0] != "-":
             s = "+" + s
+    elif sn == 0x1057fff: # SNAP(1, SNAP_FRAME | SNAP_NORESTORE, REF_NIL)
+        return "----" # Special case for LJ_FR2 slot 1.
     else:
         s = str(k)
 
@@ -2235,10 +2253,11 @@ def printsnap(T, snap):
             n += 1
             ref = (sn & 0xffff) - REF_BIAS
             if ref < 0:
-                out(formatk(T, ref))
+                out(formatk(T, ref, sn))
             elif (sn & 0x80000) != 0:  # SNAP_SOFTFPNUM
                 out("%04d/%04d" % (ref, ref+1))
             else:
+                #m, ot, op1, op2 = traceir(T, ref)
                 out("%04d" % ref)
             out((sn & 0x10000) == 0 and " " or "|") # SNAP_FRAME
         else:
