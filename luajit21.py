@@ -1817,8 +1817,6 @@ def litname(op):
 
     return None
 
-IR_KSLOT = 30
-
 IR_KPRI = 22
 IR_KINT = 23
 IR_KGC = 24
@@ -1828,6 +1826,7 @@ IR_KNULL = 27
 IR_KNUM = 28
 IR_KINT64 = 29
 IR_KSLOT = 30
+LJ_GC64 = 1
 
 def irt_toitype_(t):
     if t > IRT_NUM:
@@ -1842,7 +1841,7 @@ def irt_toitype(t):
     return irt_toitype_(irt_type(t))
 
 def ir_kgc(ir):
-    return gcref(ir['gcr'])
+    return gcref(ir[LJ_GC64]['gcr'])
 
 def ir_knum(ir):
     return mref(ir['ptr'], "TValue")
@@ -1929,11 +1928,13 @@ ffnames = [
 "print",
 "coroutine.status",
 "coroutine.running",
+"coroutine.isyieldable",
 "coroutine.create",
 "coroutine.yield",
 "coroutine.resume",
 "coroutine.wrap_aux",
 "coroutine.wrap",
+"thread.exdata",
 "math.abs",
 "math.floor",
 "math.ceil",
@@ -1989,6 +1990,10 @@ ffnames = [
 "table.maxn",
 "table.insert",
 "table.concat",
+"table.clone",
+"table.isarray",
+"table.nkeys",
+"table.isempty",
 "table.sort",
 "table.new",
 "table.clear",
@@ -2044,6 +2049,7 @@ ffnames = [
 "jit.flush",
 "jit.status",
 "jit.attach",
+"jit.prngstate",
 "jit.util.funcinfo",
 "jit.util.funcbc",
 "jit.util.funck",
@@ -2086,6 +2092,7 @@ ffnames = [
 "ffi.new",
 "ffi.cast",
 "ffi.typeof",
+"ffi.typeinfo",
 "ffi.istype",
 "ffi.sizeof",
 "ffi.alignof",
