@@ -728,6 +728,8 @@ def noderef(r):
     return mref(r, "Node")
 
 def itype(o):
+    if _gc64:
+        return (o['it64'] >> 47).cast(typ('uint32_t'))
     return o['it']
 
 def tvisnil(o):
