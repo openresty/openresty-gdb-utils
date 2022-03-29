@@ -18,6 +18,12 @@ if sys.version_info[0] >= 3:  # Python 3K
     global xrange
     xrange = range
 
+def clock():
+    try:
+        return time.clock()
+    except AttributeError:
+        return time.perf_counter()
+
 _gc64 = None
 def is_gc64():
     global _gc64
@@ -2513,7 +2519,7 @@ Usage: lgcstat"""
         self.ptr_sizeof = typ("void*").sizeof
 
     def invoke (self, args, from_tty):
-        begin = time.clock()
+        begin = clock()
 
         L = get_global_L()
         if not L:
@@ -2591,7 +2597,7 @@ Usage: lgcstat"""
         out ("g->strnum %d, g->gc.total %d\n" %
                (int(g['strnum']), int(g['gc']['total'])))
 
-        elapsed = time.clock() - begin
+        elapsed = clock() - begin
         out("elapsed: %f sec\n" % elapsed)
 
     def get_jit_state_sz(self, J):
