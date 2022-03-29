@@ -357,6 +357,15 @@ def proto_chunkname(pt):
 def strdata(s):
     return (s + 1).cast(typ("char*"))
 
+def strmask(g):
+    return g["str"]["mask"]
+
+def strhash(g):
+    return g["str"]["tab"]
+
+def strnum(g):
+    return g["str"]["num"]
+
 def G(L):
     return mref(L['glref'], "global_State")
 
@@ -2544,8 +2553,8 @@ Usage: lgcstat"""
             o = gcref(o['gch']['nextgc'])
 
         # step 2: Go through strings
-        for i in range(0, int(1 + g['strmask'])):
-            o = gcref(g['strhash'][i])
+        for i in range(0, int(1 + strmask(g))):
+            o = gcref(strhash(g)[i])
             ty = int(~LJ_TSTR());
             while o:
                 ocnt[ty] = ocnt[ty] + 1
@@ -2556,7 +2565,7 @@ Usage: lgcstat"""
                 o = gcref(o['gch']['nextgc'])
 
         # step 3: Figure out the size of misc data structures
-        strhash_size = (g['strmask'] + 1) * typ("GCRef").sizeof
+        strhash_size = (strmask(g) + 1) * typ("GCRef").sizeof
 
         if is_gc64():
             g_tmpbuf_sz = g['tmpbuf']['e']['ptr64'] - g['tmpbuf']['b']['ptr64']
@@ -2595,7 +2604,7 @@ Usage: lgcstat"""
 
         out ("\ntotal sz %d\n" % total_sz)
         out ("g->strnum %d, g->gc.total %d\n" %
-               (int(g['strnum']), int(g['gc']['total'])))
+               (int(strnum(g)), int(g['gc']['total'])))
 
         elapsed = clock() - begin
         out("elapsed: %f sec\n" % elapsed)
