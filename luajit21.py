@@ -18,6 +18,21 @@ if sys.version_info[0] >= 3:  # Python 3K
     global xrange
     xrange = range
 
+def clock():
+    try:
+        return time.clock()
+    except AttributeError:
+        return time.perf_counter()
+
+_gc64 = None
+def is_gc64():
+    global _gc64
+    if _gc64 is None:
+        size = typ("MRef").sizeof
+        # the size of MRef is 64bit when GC64 is enabled
+        _gc64 = True if size == 8 else False
+    return _gc64
+
 def LJ_TNIL():
     return ~newval("unsigned int", 0)
 
@@ -65,6 +80,11 @@ def LJ_TISNUM():
 
 def LJ_TISGCV():
     return newval("unsigned int", 1 + ~4)
+
+def LJ_FR2():
+    if is_gc64():
+        return 1
+    return 0
 
 BC_RETM = 73
 BC_RET = 74
@@ -130,7 +150,10 @@ def get_cur_L():
         return mL
     return gcref(G(mL)['cur_L'])['th'].address
 
+LJ_GCVMASK = (1 << 47) - 1
 def gcval(o):
+    if is_gc64():
+        return (o['gcr']['gcptr64'] & LJ_GCVMASK).cast(typ("GCobj*"))
     return gcref(o['gcr'])
 
 def tabV(o):
@@ -146,6 +169,8 @@ def cframe_L(cf):
             .cast(typ("GCRef*")).dereference())['th'].address
 
 def frame_ftsz(tv):
+    if is_gc64():
+        return tv['ftsz']
     return tv['fr']['tp']['ftsz']
 
 def frame_type(f):
@@ -167,22 +192,32 @@ def sizeof(typ):
     return gdb.parse_and_eval("sizeof(" + typ + ")")
 
 def gcref(r):
+    if is_gc64():
+        return r['gcptr64'].cast(typ("uintptr_t")).cast(typ("GCobj*"))
     return r['gcptr32'].cast(typ("uintptr_t")).cast(typ("GCobj*"))
 
 def gcrefp(r, t):
     #((t *)(void *)(uintptr_t)(r).gcptr32)
+    if is_gc64():
+        return r['gcptr64'].cast(typ(t + "*"))
     return r['gcptr32'].cast(typ(t + "*"))
 
 def frame_gc(frame):
+    if is_gc64():
+        return gcval(frame - 1)
     return gcref(frame['fr']['func'])
 
 def obj2gco(v):
     return v.cast(typ("GCobj*"))
 
 def mref(r, t):
+    if is_gc64():
+        return r['ptr64'].cast(typ("uintptr_t")).cast(typ(t + "*"))
     return r['ptr32'].cast(typ("uintptr_t")).cast(typ(t + "*"))
 
 def frame_pc(f):
+    if is_gc64():
+        return (f['ftsz']).cast(typ("BCIns*"))
     return mref(f['fr']['tp']['pcr'], "BCIns")
 
 def frame_contpc(f):
@@ -192,7 +227,7 @@ def bc_a(i):
     return newval("BCReg", (i >> 8) & 0xff)
 
 def frame_prevl(f):
-    return f - (1 + bc_a(frame_pc(f)[-1]))
+    return f - (1 + LJ_FR2() + bc_a(frame_pc(f)[-1]))
 
 def frame_sized(f):
     return (frame_ftsz(f) & ~FRAME_TYPEP)
@@ -294,7 +329,7 @@ def debug_framepc(L, T, fn, pt, nextframe):
     pos = proto_bcpos(pt, ins) - 1
     if pos > pt['sizebc']:
         T = ((ins - 1).cast(typ("char*")) - \
-                typ("GCtrace")['startins'].bitpos / 8).cast(typ("GCtrace*"))
+                int(typ("GCtrace")['startins'].bitpos / 8)).cast(typ("GCtrace*"))
         #print("T: %d" % int(T['traceno']))
         try:
             pos = proto_bcpos(pt, mref(T['startpc'], "BCIns"))
@@ -321,6 +356,15 @@ def proto_chunkname(pt):
 
 def strdata(s):
     return (s + 1).cast(typ("char*"))
+
+def strmask(g):
+    return g["str"]["mask"]
+
+def strhash(g):
+    return g["str"]["tab"]
+
+def strnum(g):
+    return g["str"]["num"]
 
 def G(L):
     return mref(L['glref'], "global_State")
@@ -415,7 +459,7 @@ def lj_debug_dumpstack(L, T, depth, base, full):
         level = ~depth
         depth = dir = -1
 
-    bot = tvref(L['stack'])
+    bot = tvref(L['stack']) + LJ_FR2()
     while level != depth:
         #print "checking level: %d" % level
 
@@ -699,6 +743,8 @@ def noderef(r):
     return mref(r, "Node")
 
 def itype(o):
+    if _gc64:
+        return (o['it64'] >> 47).cast(typ('uint32_t'))
     return o['it']
 
 def tvisnil(o):
@@ -2482,7 +2528,7 @@ Usage: lgcstat"""
         self.ptr_sizeof = typ("void*").sizeof
 
     def invoke (self, args, from_tty):
-        begin = time.clock()
+        begin = clock()
 
         L = get_global_L()
         if not L:
@@ -2507,8 +2553,8 @@ Usage: lgcstat"""
             o = gcref(o['gch']['nextgc'])
 
         # step 2: Go through strings
-        for i in range(0, int(1 + g['strmask'])):
-            o = gcref(g['strhash'][i])
+        for i in range(0, int(1 + strmask(g))):
+            o = gcref(strhash(g)[i])
             ty = int(~LJ_TSTR());
             while o:
                 ocnt[ty] = ocnt[ty] + 1
@@ -2519,8 +2565,13 @@ Usage: lgcstat"""
                 o = gcref(o['gch']['nextgc'])
 
         # step 3: Figure out the size of misc data structures
-        strhash_size = (g['strmask'] + 1) * typ("GCRef").sizeof
-        g_tmpbuf_sz = g['tmpbuf']['e']['ptr32'] - g['tmpbuf']['b']['ptr32']
+        strhash_size = (strmask(g) + 1) * typ("GCRef").sizeof
+
+        if is_gc64():
+            g_tmpbuf_sz = g['tmpbuf']['e']['ptr64'] - g['tmpbuf']['b']['ptr64']
+        else:
+            g_tmpbuf_sz = g['tmpbuf']['e']['ptr32'] - g['tmpbuf']['b']['ptr32']
+
         jit_state_sz = self.get_jit_state_sz(G2J(g))
         ctype_state_sz = 0
         cts = ctype_ctsG(g)
@@ -2553,9 +2604,9 @@ Usage: lgcstat"""
 
         out ("\ntotal sz %d\n" % total_sz)
         out ("g->strnum %d, g->gc.total %d\n" %
-               (int(g['strnum']), int(g['gc']['total'])))
+               (int(strnum(g)), int(g['gc']['total'])))
 
-        elapsed = time.clock() - begin
+        elapsed = clock() - begin
         out("elapsed: %f sec\n" % elapsed)
 
     def get_jit_state_sz(self, J):
@@ -2986,7 +3037,7 @@ class lgcpath(lgcstat):
         # Step 2: Iterate all TValues in the stack; if the TValue being visited
         # holds a reference to a GC object, DFS forward from the object.
         #
-        iter = tvref(thr['stack']) + 1
+        iter = tvref(thr['stack']) + 1 + LJ_FR2()
         top = thr['top']
         idx = 1
         while iter < top:
@@ -3003,7 +3054,7 @@ class lgcpath(lgcstat):
         frame = thr['base'] - 1 # starting from current function
         bottom = tvref(thr['stack'])
         idx = 0;
-        while frame > bottom:
+        while frame > bottom + LJ_FR2():
             fn = frame_func(frame)
             self.obj_annot[thraddr] = ((3<<30) | idx)
             self.dfs(fn, g)
